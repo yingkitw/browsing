@@ -1,0 +1,70 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock - typically ignored for libraries, but can be committed for applications
+# Uncomment the line below if you want to ignore Cargo.lock
+# Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Documentation
+/doc/
+*.pdf
+
+# Test artifacts
+*.test
+*.profraw
+
+# Coverage reports
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Debugging
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.cache
+
+# OS-specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Project-specific
+*.har
+*.mp4
+screenshots/
+downloads/
+

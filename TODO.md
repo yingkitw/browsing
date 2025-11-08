@@ -1,0 +1,123 @@
+# Migration TODO
+
+## Completed ✅
+
+- [x] Scaffold Rust project structure (single crate)
+- [x] Basic module structure (agent, browser, llm, tools, dom, config, error, utils, views)
+- [x] Core error types
+- [x] Configuration system (from env vars)
+- [x] Basic type definitions
+- [x] Core view types (Agent, Browser, DOM, Token views)
+- [x] Tools/actions registry system
+- [x] Browser session and CDP client integration
+- [x] DOM serialization and extraction (basic implementation)
+- [x] LLM base trait and Watsonx integration (structure complete, needs watsonx-rs implementation)
+- [x] Agent service basic structure (execution loop skeleton)
+- [x] Agent service implementation (action parsing, execution, history tracking)
+- [x] Logging setup (tracing integration)
+- [x] Configuration with .env support
+- [x] JSON repair for LLM responses (anyrepair integration)
+- [x] Actor implementation (page, element, mouse interactions)
+- [x] Keyboard input support (key combinations, modifiers)
+- [x] Action execution in tools service (search, navigate, click, input, done)
+- [x] Element clicking and input using Page/Element actors
+- [x] Selector map integration for element lookup by index
+
+## In Progress 🚧
+
+- [x] DOM tree extraction via CDP - core methods (_get_all_trees, _get_viewport_ratio) implemented
+- [x] Complete DOM tree building (get_dom_tree, enhanced node construction)
+- [ ] Complete Watsonx API integration
+- [ ] Testing and documentation
+
+## Pending 📋
+
+### Core Types and Models
+- [ ] Migrate all view types from Python (AgentHistory, BrowserStateSummary, etc.)
+- [ ] Action types (ActionModel, ActionResult)
+- [ ] DOM element types
+- [ ] Browser profile types
+
+### Browser Session
+- [x] CDP client implementation (WebSocket connection)
+- [x] Browser connection via CDP URL
+- [x] Navigation handling
+- [x] Page actor access
+- [ ] Browser launch and management (local browser)
+- [ ] Tab management
+- [ ] Page state capture (full DOM extraction)
+- [ ] Screenshot support
+
+### DOM Service
+- [x] Basic HTML parsing and text extraction
+- [x] Page state retrieval (placeholder)
+- [x] Selector map structure (placeholder)
+- [x] Core CDP tree extraction (_get_all_trees - snapshot, DOM tree, AX tree, device pixel ratio)
+- [x] Viewport ratio calculation (_get_viewport_ratio)
+- [x] CDP client session_id support (send_command_with_session)
+- [x] Full DOM tree building (get_dom_tree, enhanced node construction)
+- [x] Enhanced snapshot lookup (build_snapshot_lookup)
+- [x] Enhanced DOM tree node types (EnhancedDOMTreeNode, EnhancedSnapshotNode, EnhancedAXNode)
+- [ ] Element extraction with indices
+- [ ] Markdown extraction
+- [ ] Paint order filtering
+- [ ] Enhanced DOM snapshot
+- [ ] DOM serializer for LLM representation
+
+### LLM Integration
+- [x] LLM base trait (ChatModel)
+- [x] ChatMessage types
+- [x] ChatInvokeCompletion types
+- [ ] Complete Watsonx integration using watsonx-rs (structure ready, needs actual API calls)
+- [ ] Streaming support (skeleton ready)
+- [ ] Message formatting
+- [ ] Token counting
+
+### Tools/Actions
+- [x] Action registry system
+- [x] Default actions (click, input, navigate, search, done)
+- [x] Action execution (basic implementation)
+- [x] Element interaction (click, input using Page/Element actors)
+- [x] Selector map integration (get element by index, lookup backend_node_id)
+- [ ] Custom action registration
+
+### Agent Service
+- [x] Agent execution loop (complete)
+- [x] Step management
+- [x] LLM interaction
+- [x] Action parsing from LLM response (with JSON repair)
+- [x] Action execution via tools
+- [x] History tracking
+- [x] Task completion detection
+
+### Actor (Low-level browser interactions)
+- [x] Page actor (navigation, evaluation, screenshot, keyboard)
+- [x] Element actor (click, fill, text extraction)
+- [x] Mouse actor (click, move, scroll)
+- [x] Keyboard input (press keys, key combinations)
+
+### Utilities
+- [x] URL detection and parsing
+- [x] Logging setup (tracing)
+- [x] Configuration with .env support
+- [ ] Signal handling
+- [ ] Telemetry (optional)
+
+### Testing
+- [ ] Unit tests for core modules
+- [ ] Integration tests
+- [ ] Snapshot tests (insta)
+
+### Documentation
+- [ ] API documentation
+- [ ] Examples
+- [ ] Migration guide
+
+## Notes
+
+- Using single crate structure (not multi-crate workspace)
+- Using watsonx-rs for LLM integration
+- Using anyrepair for JSON repair
+- Using rmcp for MCP support
+- Rust edition 2024
+
