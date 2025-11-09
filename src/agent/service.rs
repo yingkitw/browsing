@@ -8,6 +8,7 @@ use crate::tools::Tools;
 use crate::tools::views::ActionModel;
 use crate::dom::DomService;
 use serde_json::Value;
+use tracing::info;
 
 /// Agent for autonomous web automation
 pub struct Agent<L: ChatModel> {
@@ -106,8 +107,18 @@ impl<L: ChatModel> Agent<L> {
             self.browser.navigate(&url).await?;
         }
 
+        // Set up signal handler for graceful shutdown
+        let signal_handler = crate::utils::signal::SignalHandler::new();
+        let _shutdown_listener = signal_handler.spawn_shutdown_listener();
+
         // Main execution loop
         for step in 0..self.max_steps {
+            // Check for shutdown request
+            if signal_handler.is_shutdown_requested() || crate::utils::signal::is_shutdown_requested() {
+                info!("🛑 Shutdown requested, stopping agent execution");
+                break;
+            }
+            
             self.state.n_steps = step + 1;
 
             // Get page state

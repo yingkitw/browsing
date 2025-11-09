@@ -2,7 +2,7 @@
 
 ## Summary
 
-**Overall Progress**: ~100% Complete (Core Functionality)
+**Overall Progress**: ~100% Complete (Core Functionality + Signal Handling)
 
 ### Core Functionality ✅
 - ✅ Browser launch and CDP connection
@@ -11,12 +11,14 @@
 - ✅ Agent execution loop
 - ✅ Screenshot support
 - ✅ Actor system (Page, Element, Mouse, Keyboard)
+- ✅ Signal handling for graceful shutdown
 
 ### Remaining Work ⏳
-- ⏳ Testing and documentation
+- ⏳ Documentation (API docs, examples, migration guide)
 - ⏳ Advanced DOM features (paint order, enhanced markdown) - Optional optimizations
 - ⏳ Cost calculation (token counting implemented, cost calculation can be added)
 - [x] Additional actions (extract - LLM-based content extraction) - ✅ Complete
+- [x] Signal handling (SIGINT/SIGTERM) - ✅ Complete
 
 ## Completed ✅
 
@@ -44,7 +46,7 @@
 
 ## In Progress 🚧
 
-- [ ] Testing and documentation
+- [ ] Documentation (API docs, examples, migration guide)
 
 ## Pending 📋
 
@@ -119,12 +121,12 @@
 - [x] URL detection and parsing
 - [x] Logging setup (tracing)
 - [x] Configuration with .env support
-- [ ] Signal handling
+- [x] Signal handling (SIGINT/SIGTERM for graceful shutdown)
 - [ ] Telemetry (optional)
 
 ### Testing
 - [x] Unit tests for core modules (23 tests passing)
-- [x] Integration tests (6 tests passing)
+- [x] Integration tests (24 comprehensive tests passing)
 - [x] Additional test suites (browser, dom, agent, tools, llm - 13 tests passing)
 - [ ] Snapshot tests (insta) - Optional
 

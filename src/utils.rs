@@ -1,6 +1,7 @@
 //! Utility functions
 
-use crate::error::Result;
+pub mod signal;
+
 use regex::Regex;
 use url::Url;
 
