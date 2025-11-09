@@ -2,7 +2,7 @@
 
 ## Summary
 
-**Overall Progress**: ~98% Complete
+**Overall Progress**: ~100% Complete (Core Functionality)
 
 ### Core Functionality ✅
 - ✅ Browser launch and CDP connection
@@ -16,7 +16,7 @@
 - ⏳ Testing and documentation
 - ⏳ Advanced DOM features (paint order, enhanced markdown) - Optional optimizations
 - ⏳ Cost calculation (token counting implemented, cost calculation can be added)
-- ⏳ Additional actions (upload_file, find_text, dropdown_options, select_dropdown, extract) - Optional
+- [x] Additional actions (extract - LLM-based content extraction) - ✅ Complete
 
 ## Completed ✅
 
@@ -94,7 +94,7 @@
 
 ### Tools/Actions
 - [x] Action registry system
-- [x] Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate)
+- [x] Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate, find_text, dropdown_options, select_dropdown, upload_file, extract)
 - [x] Action execution (basic implementation)
 - [x] Element interaction (click, input using Page/Element actors)
 - [x] Selector map integration (get element by index, lookup backend_node_id)

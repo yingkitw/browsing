@@ -4,7 +4,7 @@ Rust implementation of Browser-Use - Make websites accessible for AI agents.
 
 ## Status
 
-✅ **98% Complete** - All core functionality implemented and ready for production use.
+✅ **100% Complete** - All core functionality implemented and ready for production use.
 
 ### ✅ Completed Features
 
@@ -15,7 +15,7 @@ Rust implementation of Browser-Use - Make websites accessible for AI agents.
 - **Agent Service**: Complete execution loop with action parsing and history tracking
 - **Screenshot Support**: Page, element, and full-page screenshot capture
 - **Actor System**: Page, Element, Mouse, and Keyboard interactions
-- **Tools/Actions**: Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate)
+- **Tools/Actions**: Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate, find_text, dropdown_options, select_dropdown, upload_file, extract)
 - **Tab Management**: List, switch, close, and create tabs
 - **Custom Actions**: ActionHandler trait for registering custom actions
 - **Token Tracking**: Automatic usage tracking from LLM responses
@@ -180,7 +180,7 @@ let element_screenshot = element.screenshot(Some("png"), None).await?;
 
 See [TODO.md](TODO.md) for detailed migration status.
 
-**Current Status**: Core functionality complete (~98% migrated)
+**Current Status**: Core functionality complete (100% migrated)
 - ✅ Browser launch and CDP connection
 - ✅ DOM extraction and serialization
 - ✅ LLM integration (Watsonx)

@@ -6,6 +6,7 @@ use crate::tools::views::ActionModel;
 use crate::agent::views::ActionResult;
 use crate::browser::Browser;
 use tracing::info;
+use serde_json::json;
 
 /// Tools registry for agent actions
 pub struct Tools {
@@ -99,6 +100,36 @@ impl Tools {
             "Execute JavaScript code on the page".to_string(),
             None,
         );
+        
+        registry.register_action(
+            "find_text".to_string(),
+            "Scroll to specific text on page".to_string(),
+            None,
+        );
+        
+        registry.register_action(
+            "dropdown_options".to_string(),
+            "Get dropdown option values".to_string(),
+            None,
+        );
+        
+        registry.register_action(
+            "select_dropdown".to_string(),
+            "Select dropdown options".to_string(),
+            None,
+        );
+        
+        registry.register_action(
+            "upload_file".to_string(),
+            "Upload files to file inputs".to_string(),
+            None,
+        );
+        
+        registry.register_action(
+            "extract".to_string(),
+            "LLM extracts structured data from page markdown. Use when: on right page, know what to extract, haven't called before on same page+query.".to_string(),
+            None,
+        );
     }
 
     pub async fn act(
@@ -106,6 +137,16 @@ impl Tools {
         action: ActionModel,
         browser_session: &mut crate::browser::Browser,
         selector_map: Option<&std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>>,
+    ) -> Result<ActionResult> {
+        self.act_with_llm(action, browser_session, selector_map, None).await
+    }
+    
+    pub async fn act_with_llm(
+        &self,
+        action: ActionModel,
+        browser_session: &mut crate::browser::Browser,
+        selector_map: Option<&std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>>,
+        llm: Option<&dyn crate::llm::base::ChatModel>,
     ) -> Result<ActionResult> {
         let action_type = action.action_type.as_str();
         
@@ -128,6 +169,11 @@ impl Tools {
             "wait" => self.handle_wait(action).await,
             "send_keys" => self.handle_send_keys(action, browser_session).await,
             "evaluate" => self.handle_evaluate(action, browser_session).await,
+            "find_text" => self.handle_find_text(action, browser_session).await,
+            "dropdown_options" => self.handle_dropdown_options(action, browser_session, selector_map).await,
+            "select_dropdown" => self.handle_select_dropdown(action, browser_session, selector_map).await,
+            "upload_file" => self.handle_upload_file(action, browser_session, selector_map).await,
+            "extract" => self.handle_extract(action, browser_session, llm).await,
             _ => Err(BrowserUseError::Tool(format!(
                 "Unknown action type: {}",
                 action_type
@@ -524,6 +570,470 @@ impl Tools {
             long_term_memory: Some(memory),
             ..Default::default()
         })
+    }
+
+    async fn handle_find_text(
+        &self,
+        action: ActionModel,
+        browser_session: &mut Browser,
+    ) -> Result<ActionResult> {
+        let text = action
+            .params
+            .get("text")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'text' parameter".to_string()))?;
+        
+        let page = browser_session.get_page()?;
+        
+        // Use JavaScript to find and scroll to text
+        let script = format!(
+            r#"
+            (function() {{
+                const searchText = {};
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let node;
+                while (node = walker.nextNode()) {{
+                    if (node.textContent && node.textContent.includes(searchText)) {{
+                        const range = document.createRange();
+                        range.selectNodeContents(node);
+                        const rect = range.getBoundingClientRect();
+                        window.scrollTo({{
+                            top: window.scrollY + rect.top - window.innerHeight / 2,
+                            behavior: 'smooth'
+                        }});
+                        return true;
+                    }}
+                }}
+                return false;
+            }})()
+            "#,
+            serde_json::to_string(text)?
+        );
+        
+        let result = page.evaluate(&script).await?;
+        let found = result.trim() == "true";
+        
+        if found {
+            let memory = format!("Scrolled to text: {}", text);
+            info!("🔍 {}", memory);
+            Ok(ActionResult {
+                extracted_content: Some(memory.clone()),
+                long_term_memory: Some(memory),
+                ..Default::default()
+            })
+        } else {
+            let msg = format!("Text '{}' not found or not visible on page", text);
+            info!("⚠️ {}", msg);
+            Ok(ActionResult {
+                extracted_content: Some(msg.clone()),
+                long_term_memory: Some(format!("Tried scrolling to text '{}' but it was not found", text)),
+                ..Default::default()
+            })
+        }
+    }
+
+    async fn handle_dropdown_options(
+        &self,
+        action: ActionModel,
+        browser_session: &mut Browser,
+        selector_map: Option<&std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>>,
+    ) -> Result<ActionResult> {
+        let index = action
+            .params
+            .get("index")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))? as u32;
+        
+        // Get element from selector map
+        let element = selector_map
+            .and_then(|map| map.get(&index))
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+        
+        let page = browser_session.get_page()?;
+        
+        // Get options using JavaScript
+        let backend_node_id = element.backend_node_id
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index)))?;
+        
+        let script = format!(
+            r#"
+            (function() {{
+                const nodeId = {};
+                const node = document.querySelector(`[data-backend-node-id="${{nodeId}}"]`) ||
+                             Array.from(document.querySelectorAll('select')).find(el => {{
+                                 const rect = el.getBoundingClientRect();
+                                 return rect.width > 0 && rect.height > 0;
+                             }}) || document.querySelector('select');
+                
+                if (!node && document.querySelector('select')) {{
+                    const select = document.querySelector('select');
+                    const options = Array.from(select.options).map(opt => ({{
+                        value: opt.value,
+                        text: opt.text,
+                        selected: opt.selected
+                    }}));
+                    return JSON.stringify(options);
+                }}
+                
+                if (node && node.tagName === 'SELECT') {{
+                    const options = Array.from(node.options).map(opt => ({{
+                        value: opt.value,
+                        text: opt.text,
+                        selected: opt.selected
+                    }}));
+                    return JSON.stringify(options);
+                }}
+                
+                return JSON.stringify([]);
+            }})()
+            "#,
+            backend_node_id
+        );
+        
+        let result = page.evaluate(&script).await?;
+        let options: Vec<serde_json::Value> = serde_json::from_str(&result).unwrap_or_default();
+        
+        let options_text = options
+            .iter()
+            .enumerate()
+            .map(|(i, opt)| {
+                let value = opt.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                let text = opt.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                format!("{}. {} (value: {})", i + 1, text, value)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        
+        let memory = format!("Dropdown options for index {}:\n{}", index, options_text);
+        info!("📋 {}", memory);
+        Ok(ActionResult {
+            extracted_content: Some(options_text),
+            long_term_memory: Some(memory),
+            ..Default::default()
+        })
+    }
+
+    async fn handle_select_dropdown(
+        &self,
+        action: ActionModel,
+        browser_session: &mut Browser,
+        selector_map: Option<&std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>>,
+    ) -> Result<ActionResult> {
+        let index = action
+            .params
+            .get("index")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))? as u32;
+        
+        let text = action
+            .params
+            .get("text")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'text' parameter".to_string()))?;
+        
+        // Get element from selector map
+        let element = selector_map
+            .and_then(|map| map.get(&index))
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+        
+        let page = browser_session.get_page()?;
+        
+        // Select option using JavaScript
+        let backend_node_id = element.backend_node_id
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index)))?;
+        
+        let script = format!(
+            r#"
+            (function() {{
+                const nodeId = {};
+                const searchText = {};
+                const node = document.querySelector(`[data-backend-node-id="${{nodeId}}"]`) ||
+                             Array.from(document.querySelectorAll('select')).find(el => {{
+                                 const rect = el.getBoundingClientRect();
+                                 return rect.width > 0 && rect.height > 0;
+                             }}) || document.querySelector('select');
+                
+                if (!node || node.tagName !== 'SELECT') {{
+                    return {{ success: false, error: 'Element is not a select dropdown' }};
+                }}
+                
+                const options = Array.from(node.options);
+                const option = options.find(opt => 
+                    opt.text.trim() === searchText || 
+                    opt.value === searchText ||
+                    opt.text.includes(searchText)
+                );
+                
+                if (!option) {{
+                    return {{ success: false, error: `Option "${{searchText}}" not found` }};
+                }}
+                
+                node.value = option.value;
+                node.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                node.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                
+                return {{ success: true, message: `Selected option: ${{option.text}} (value: ${{option.value}})` }};
+            }})()
+            "#,
+            backend_node_id,
+            serde_json::to_string(text)?
+        );
+        
+        let result = page.evaluate(&script).await?;
+        let result_obj: serde_json::Value = serde_json::from_str(&result).unwrap_or(serde_json::json!({}));
+        
+        if result_obj.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let message = result_obj
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Selected option");
+            let memory = format!("Selected dropdown option '{}' at index {}", text, index);
+            info!("✅ {}", memory);
+            Ok(ActionResult {
+                extracted_content: Some(message.to_string()),
+                long_term_memory: Some(memory),
+                ..Default::default()
+            })
+        } else {
+            let error = result_obj
+                .get("error")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Failed to select dropdown option");
+            Err(BrowserUseError::Tool(error.to_string()))
+        }
+    }
+
+    async fn handle_upload_file(
+        &self,
+        action: ActionModel,
+        browser_session: &mut Browser,
+        selector_map: Option<&std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>>,
+    ) -> Result<ActionResult> {
+        let index = action
+            .params
+            .get("index")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))? as u32;
+        
+        let path = action
+            .params
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'path' parameter".to_string()))?;
+        
+        // Check if file exists
+        if !std::path::Path::new(path).exists() {
+            return Err(BrowserUseError::Tool(format!("File {} does not exist", path)));
+        }
+        
+        // Get element from selector map
+        let element = selector_map
+            .and_then(|map| map.get(&index))
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+        
+        // Get CDP client for file upload
+        let client = browser_session.get_cdp_client()?;
+        
+        // For file upload, we need to use DOM.setFileInputFiles
+        // First, get the node ID
+        let backend_node_id = element.backend_node_id
+            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index)))?;
+        
+        let node_id = {
+            let params = json!({
+                "backendNodeIds": [backend_node_id]
+            });
+            let result = client
+                .send_command("DOM.pushNodesByBackendIdsToFrontend", params)
+                .await?;
+            let node_ids = result
+                .get("nodeIds")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| BrowserUseError::Dom("No nodeIds in response".to_string()))?;
+            let node_id = node_ids
+                .first()
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| BrowserUseError::Dom("Invalid nodeId".to_string()))?;
+            node_id as u32
+        };
+        
+        // Use DOM.setFileInputFiles to upload the file
+        // Note: This requires the file to be accessible via the browser's file system
+        // For local browsers, we can use the file path directly
+        let params = json!({
+            "nodeId": node_id,
+            "files": [path]
+        });
+        
+        // Get current session ID
+        let session_id = browser_session.get_session_id()?;
+        
+        client
+            .send_command_with_session("DOM.setFileInputFiles", params, Some(&session_id))
+            .await
+            .map_err(|e| BrowserUseError::Tool(format!("Failed to upload file: {}", e)))?;
+        
+        let memory = format!("Uploaded file {} to element {}", path, index);
+        info!("📁 {}", memory);
+        Ok(ActionResult {
+            extracted_content: Some(format!("Successfully uploaded file to index {}", index)),
+            long_term_memory: Some(memory),
+            ..Default::default()
+        })
+    }
+
+    async fn handle_extract(
+        &self,
+        action: ActionModel,
+        browser_session: &mut Browser,
+        llm: Option<&dyn crate::llm::base::ChatModel>,
+    ) -> Result<ActionResult> {
+        let query = action
+            .params
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| BrowserUseError::Tool("Missing 'query' parameter".to_string()))?;
+        
+        let extract_links = action
+            .params
+            .get("extract_links")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        
+        let start_from_char = action
+            .params
+            .get("start_from_char")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+        
+        // Get DOM service - we need to access it through browser session
+        // For now, we'll get the markdown from the serialized DOM state
+        // This is a simplified version - in production, you'd want to pass dom_service
+        
+        // Get current URL
+        let current_url = browser_session.get_current_url().await.unwrap_or_else(|_| "unknown".to_string());
+        
+        // Try to get markdown content using evaluate
+        let page = browser_session.get_page()?;
+        let content_script = r#"
+            (function() {
+                // Get page text content
+                const body = document.body || document.documentElement;
+                return body.innerText || body.textContent || '';
+            })()
+        "#;
+        
+        let content = page.evaluate(content_script).await.unwrap_or_else(|_| "Unable to extract content".to_string());
+        
+        // Apply start_from_char if specified
+        let content = if start_from_char > 0 && start_from_char < content.len() {
+            &content[start_from_char..]
+        } else {
+            &content
+        };
+        
+        // Truncate if too long (MAX_CHAR_LIMIT = 30000)
+        const MAX_CHAR_LIMIT: usize = 30000;
+        let truncated = content.len() > MAX_CHAR_LIMIT;
+        let final_content = if truncated {
+            // Try to truncate at paragraph break
+            if let Some(break_pos) = content[..MAX_CHAR_LIMIT].rfind("\n\n") {
+                &content[..break_pos]
+            } else if let Some(break_pos) = content[..MAX_CHAR_LIMIT].rfind('.') {
+                &content[..=break_pos]
+            } else {
+                &content[..MAX_CHAR_LIMIT]
+            }
+        } else {
+            content
+        };
+        
+        // If LLM is available, use it to extract data
+        if let Some(llm) = llm {
+            let system_prompt = r#"You are an expert at extracting data from the markdown of a webpage.
+
+<input>
+You will be given a query and the text content of a webpage.
+</input>
+
+<instructions>
+- You are tasked to extract information from the webpage that is relevant to the query.
+- You should ONLY use the information available in the webpage to answer the query. Do not make up information or provide guess from your own knowledge.
+- If the information relevant to the query is not available in the page, your response should mention that.
+- If the query asks for all items, products, etc., make sure to directly list all of them.
+</instructions>
+
+<output>
+- Your output should present ALL the information relevant to the query in a concise way.
+- Do not answer in conversational format - directly output the relevant information or that the information is unavailable.
+</output>"#;
+            
+            let prompt = format!(
+                "<query>\n{}\n</query>\n\n<webpage_content>\n{}\n</webpage_content>",
+                query,
+                final_content
+            );
+            
+            let messages = vec![
+                crate::llm::base::ChatMessage::system(system_prompt.to_string()),
+                crate::llm::base::ChatMessage::user(prompt),
+            ];
+            
+            match llm.chat(&messages).await {
+                Ok(response) => {
+                    let extracted_content = format!(
+                        "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\n{}\n</result>",
+                        current_url,
+                        query,
+                        response.completion
+                    );
+                    
+                    let memory = if extracted_content.len() < 1000 {
+                        extracted_content.clone()
+                    } else {
+                        format!("Query: {}\nContent extracted ({} chars)", query, extracted_content.len())
+                    };
+                    
+                    info!("📄 Extracted content for query: {}", query);
+                    Ok(ActionResult {
+                        extracted_content: Some(extracted_content),
+                        long_term_memory: Some(memory),
+                        ..Default::default()
+                    })
+                }
+                Err(e) => {
+                    // Fallback: return raw content
+                    let extracted_content = format!(
+                        "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\n{}\n</result>",
+                        current_url,
+                        query,
+                        "LLM extraction failed, returning raw content"
+                    );
+                    Err(BrowserUseError::Tool(format!("LLM extraction failed: {}", e)))
+                }
+            }
+        } else {
+            // No LLM available - return raw content with a note
+            let extracted_content = format!(
+                "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\nNo LLM available for extraction. Raw content:\n{}\n</result>",
+                current_url,
+                query,
+                if truncated { format!("{}... (truncated)", &final_content[..1000.min(final_content.len())]) } else { final_content.to_string() }
+            );
+            
+            info!("📄 Extracted raw content for query: {} (no LLM)", query);
+            Ok(ActionResult {
+                extracted_content: Some(extracted_content),
+                long_term_memory: Some(format!("Extracted content for query: {} (no LLM available)", query)),
+                ..Default::default()
+            })
+        }
     }
 }
 
