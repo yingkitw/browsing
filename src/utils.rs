@@ -1,67 +1,142 @@
-//! Utility functions for browser-use-rs
+//! Utility functions
 
+use crate::error::Result;
 use regex::Regex;
 use url::Url;
 
-lazy_static::lazy_static! {
-    pub static ref URL_PATTERN: Regex = Regex::new(
-        r#"https?://[^\s<>"']+|www\.[^\s<>"']+|[^\s<>"']+\.[a-z]{2,}(?:/[^\s<>"']*)?"#
-    ).unwrap();
-}
-
-/// Check if a string is a URL
-pub fn is_url(s: &str) -> bool {
-    URL_PATTERN.is_match(s) || Url::parse(s).is_ok()
-}
-
 /// Extract URLs from text
 pub fn extract_urls(text: &str) -> Vec<String> {
-    URL_PATTERN
+    // Simplified URL pattern - match http/https URLs
+    // Match until whitespace
+    let url_pattern = Regex::new(
+        r"(?i)\bhttps?://[^\s]+",
+    )
+    .unwrap();
+    
+    url_pattern
         .find_iter(text)
-        .map(|m| m.as_str().to_string())
+        .filter_map(|m| {
+            let url_str = m.as_str();
+            // Try to parse and normalize
+            url_str
+                .parse::<Url>()
+                .ok()
+                .map(|u| u.to_string())
+        })
         .collect()
 }
 
-/// Match a URL against a domain pattern (supports wildcards)
+/// Match a URL against a domain pattern
+/// Supports patterns like:
+/// - "example.com" - exact match
+/// - "*.example.com" - subdomain match
+/// - "http*://example.com" - protocol match
 pub fn match_url_with_domain_pattern(url: &str, pattern: &str) -> bool {
-    use url::Url;
+    if pattern.is_empty() || url.is_empty() {
+        return false;
+    }
     
-    let url = match Url::parse(url) {
+    // Parse URL
+    let parsed_url = match Url::parse(url) {
         Ok(u) => u,
         Err(_) => return false,
     };
     
-    let host = match url.host_str() {
-        Some(h) => h,
-        None => return false,
-    };
+    let url_host = parsed_url.host_str().unwrap_or("");
+    let url_scheme = parsed_url.scheme();
     
-    // Simple pattern matching - supports * wildcard
-    if pattern.contains('*') {
-        let pattern_parts: Vec<&str> = pattern.split('*').collect();
-        if pattern_parts.len() == 2 {
-            // Pattern like "*.example.com"
-            let prefix = pattern_parts[0];
-            let suffix = pattern_parts[1];
-            if prefix.is_empty() {
-                host.ends_with(suffix)
-            } else if suffix.is_empty() {
-                host.starts_with(prefix)
-            } else {
-                host.starts_with(prefix) && host.ends_with(suffix)
+    // Handle protocol pattern (http*://example.com)
+    if pattern.contains("://") {
+        let parts: Vec<&str> = pattern.split("://").collect();
+        if parts.len() == 2 {
+            let scheme_pattern = parts[0];
+            let domain_pattern = parts[1];
+            
+            // Check scheme match
+            if scheme_pattern.ends_with('*') {
+                // Pattern like "http*" should match "http" and "https"
+                let prefix = &scheme_pattern[..scheme_pattern.len() - 1];
+                if !url_scheme.starts_with(prefix) {
+                    return false;
+                }
+            } else if scheme_pattern != url_scheme {
+                return false;
             }
-        } else {
-            // More complex patterns - simple contains check
-            host.contains(pattern.trim_matches('*'))
+            
+            // Check domain match
+            return match_domain_pattern(url_host, domain_pattern);
         }
-    } else {
-        // Exact match or suffix match
-        host == pattern || host.ends_with(&format!(".{}", pattern))
+    }
+    
+    // Handle domain pattern only
+    match_domain_pattern(url_host, pattern)
+}
+
+fn match_domain_pattern(host: &str, pattern: &str) -> bool {
+    if pattern == host {
+        return true;
+    }
+    
+    // Handle wildcard pattern (*.example.com)
+    if pattern.starts_with("*.") {
+        let suffix = &pattern[2..];
+        // For *.example.com, host should end with .example.com or be exactly example.com
+        // But not match example.com itself (only subdomains)
+        if host == suffix {
+            return false; // *.example.com should not match example.com itself
+        }
+        return host.ends_with(&format!(".{}", suffix));
+    }
+    
+    // Handle exact match
+    pattern == host
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_urls() {
+        let text = "Visit https://example.com and http://test.org/page";
+        let urls = extract_urls(text);
+        // URLs may be normalized by Url parser, so check they contain the domains
+        assert!(urls.len() >= 1);
+        assert!(urls.iter().any(|u| u.contains("example.com")));
+        assert!(urls.iter().any(|u| u.contains("test.org")));
+    }
+
+    #[test]
+    fn test_extract_urls_with_www() {
+        let text = "Check https://www.example.com for details";
+        let urls = extract_urls(text);
+        assert!(!urls.is_empty());
+        assert!(urls[0].starts_with("https://"));
+    }
+
+    #[test]
+    fn test_extract_urls_no_urls() {
+        let text = "This is just plain text with no URLs";
+        let urls = extract_urls(text);
+        assert!(urls.is_empty());
+    }
+
+    #[test]
+    fn test_match_url_with_domain_pattern() {
+        use super::match_url_with_domain_pattern;
+        
+        // Exact match
+        assert!(match_url_with_domain_pattern("https://example.com", "example.com"));
+        assert!(match_url_with_domain_pattern("https://example.com/path", "example.com"));
+        
+        // Wildcard subdomain
+        assert!(match_url_with_domain_pattern("https://www.example.com", "*.example.com"));
+        assert!(match_url_with_domain_pattern("https://api.example.com", "*.example.com"));
+        assert!(!match_url_with_domain_pattern("https://example.com", "*.example.com"));
+        
+        // Protocol pattern
+        assert!(match_url_with_domain_pattern("https://example.com", "http*://example.com"));
+        assert!(match_url_with_domain_pattern("http://example.com", "http*://example.com"));
+        assert!(!match_url_with_domain_pattern("ftp://example.com", "http*://example.com"));
     }
 }
-
-/// Check if URL is a new tab page
-pub fn is_new_tab_page(url: &str) -> bool {
-    url == "about:blank" || url == "chrome://newtab/" || url.is_empty()
-}
-

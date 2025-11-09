@@ -43,3 +43,54 @@ pub enum BrowserUseError {
 
 pub type Result<T> = std::result::Result<T, BrowserUseError>;
 
+#[cfg(test)]
+mod tests {
+    use super::{BrowserUseError, Result};
+
+    #[test]
+    fn test_browser_error() {
+        let err = BrowserUseError::Browser("Test error".to_string());
+        assert!(err.to_string().contains("Test error"));
+    }
+
+    #[test]
+    fn test_dom_error() {
+        let err = BrowserUseError::Dom("DOM error".to_string());
+        assert!(err.to_string().contains("DOM error"));
+    }
+
+    #[test]
+    fn test_tool_error() {
+        let err = BrowserUseError::Tool("Tool error".to_string());
+        assert!(err.to_string().contains("Tool error"));
+    }
+
+    #[test]
+    fn test_llm_error() {
+        let err = BrowserUseError::Llm("LLM error".to_string());
+        assert!(err.to_string().contains("LLM error"));
+    }
+
+    #[test]
+    fn test_config_error() {
+        let err = BrowserUseError::Config("Config error".to_string());
+        assert!(err.to_string().contains("Config error"));
+    }
+
+    #[test]
+    fn test_error_display() {
+        let errors = vec![
+            BrowserUseError::Browser("browser".to_string()),
+            BrowserUseError::Dom("dom".to_string()),
+            BrowserUseError::Tool("tool".to_string()),
+            BrowserUseError::Llm("llm".to_string()),
+            BrowserUseError::Config("config".to_string()),
+        ];
+
+        for err in errors {
+            let display = format!("{}", err);
+            assert!(!display.is_empty());
+        }
+    }
+}
+

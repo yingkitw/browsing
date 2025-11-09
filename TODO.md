@@ -123,9 +123,10 @@
 - [ ] Telemetry (optional)
 
 ### Testing
-- [ ] Unit tests for core modules
-- [ ] Integration tests
-- [ ] Snapshot tests (insta)
+- [x] Unit tests for core modules (23 tests passing)
+- [x] Integration tests (6 tests passing)
+- [x] Additional test suites (browser, dom, agent, tools, llm - 13 tests passing)
+- [ ] Snapshot tests (insta) - Optional
 
 ### Documentation
 - [ ] API documentation

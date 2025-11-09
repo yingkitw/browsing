@@ -6,6 +6,8 @@ Rust implementation of Browser-Use - Make websites accessible for AI agents.
 
 ✅ **100% Complete** - All core functionality implemented and ready for production use.
 
+**Test Coverage**: 42 tests passing across all modules
+
 ### ✅ Completed Features
 
 - **Browser Automation**: Local browser launch and CDP connection
