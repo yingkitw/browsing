@@ -10,7 +10,8 @@
 - [x] Core view types (Agent, Browser, DOM, Token views)
 - [x] Tools/actions registry system
 - [x] Browser session and CDP client integration
-- [x] DOM serialization and extraction (basic implementation)
+- [x] DOM serialization and extraction (complete implementation with CDP)
+- [x] DOM service integration with agent service
 - [x] LLM base trait and Watsonx integration (structure complete, needs watsonx-rs implementation)
 - [x] Agent service basic structure (execution loop skeleton)
 - [x] Agent service implementation (action parsing, execution, history tracking)
@@ -27,7 +28,7 @@
 
 - [x] DOM tree extraction via CDP - core methods (_get_all_trees, _get_viewport_ratio) implemented
 - [x] Complete DOM tree building (get_dom_tree, enhanced node construction)
-- [ ] Complete Watsonx API integration
+- [x] Complete Watsonx API integration (HTTP streaming implementation, ready for watsonx-rs integration)
 - [ ] Testing and documentation
 
 ## Pending 📋
@@ -43,9 +44,9 @@
 - [x] Browser connection via CDP URL
 - [x] Navigation handling
 - [x] Page actor access
-- [ ] Browser launch and management (local browser)
+- [x] Browser launch and management (local browser - basic implementation)
 - [ ] Tab management
-- [ ] Page state capture (full DOM extraction)
+- [x] Page state capture (full DOM extraction via get_serialized_dom_tree)
 - [ ] Screenshot support
 
 ### DOM Service
@@ -58,20 +59,21 @@
 - [x] Full DOM tree building (get_dom_tree, enhanced node construction)
 - [x] Enhanced snapshot lookup (build_snapshot_lookup)
 - [x] Enhanced DOM tree node types (EnhancedDOMTreeNode, EnhancedSnapshotNode, EnhancedAXNode)
-- [ ] Element extraction with indices
-- [ ] Markdown extraction
-- [ ] Paint order filtering
-- [ ] Enhanced DOM snapshot
-- [ ] DOM serializer for LLM representation
+- [x] DOM serializer for LLM representation (basic implementation)
+- [x] get_serialized_dom_tree method
+- [x] Element extraction with indices (selector map)
+- [ ] Markdown extraction (enhanced)
+- [ ] Paint order filtering (advanced)
+- [ ] Enhanced DOM snapshot optimizations
 
 ### LLM Integration
 - [x] LLM base trait (ChatModel)
 - [x] ChatMessage types
 - [x] ChatInvokeCompletion types
-- [ ] Complete Watsonx integration using watsonx-rs (structure ready, needs actual API calls)
-- [ ] Streaming support (skeleton ready)
-- [ ] Message formatting
-- [ ] Token counting
+- [x] Complete Watsonx integration using watsonx-rs (HTTP streaming implemented, ready for watsonx-rs crate integration)
+- [x] Streaming support (HTTP SSE streaming implemented)
+- [x] Message formatting (messages_to_watsonx method)
+- [ ] Token counting (usage information extraction from response)
 
 ### Tools/Actions
 - [x] Action registry system

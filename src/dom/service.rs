@@ -7,6 +7,7 @@ use crate::dom::views::{
     SerializedDOMState, DOMRect,
 };
 use crate::dom::enhanced_snapshot::build_snapshot_lookup;
+use crate::dom::serializer::DOMTreeSerializer;
 use regex::Regex;
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ pub struct DomService {
     browser: Option<Arc<Browser>>,
     cdp_client: Option<Arc<CdpClient>>,
     session_id: Option<String>,
+    current_target_id: Option<String>,
     cross_origin_iframes: bool,
     paint_order_filtering: bool,
     max_iframes: usize,
@@ -30,6 +32,7 @@ impl DomService {
             browser: None,
             cdp_client: None,
             session_id: None,
+            current_target_id: None,
             cross_origin_iframes: false,
             paint_order_filtering: true,
             max_iframes: 100,
@@ -39,12 +42,15 @@ impl DomService {
 
     pub fn with_browser(mut self, browser: Arc<Browser>) -> Self {
         self.browser = Some(browser);
-        // Extract CDP client and session ID from browser
+        // Extract CDP client, session ID, and target ID from browser
         if let Ok(client) = self.browser.as_ref().unwrap().get_cdp_client() {
             self.cdp_client = Some(client);
         }
         if let Ok(sid) = self.browser.as_ref().unwrap().get_session_id() {
             self.session_id = Some(sid);
+        }
+        if let Ok(target_id) = self.browser.as_ref().unwrap().get_current_target_id() {
+            self.current_target_id = Some(target_id);
         }
         self
     }
@@ -52,6 +58,11 @@ impl DomService {
     pub fn with_cdp_client(mut self, client: Arc<CdpClient>, session_id: String) -> Self {
         self.cdp_client = Some(client);
         self.session_id = Some(session_id);
+        self
+    }
+
+    pub fn with_target_id(mut self, target_id: String) -> Self {
+        self.current_target_id = Some(target_id);
         self
     }
 
@@ -252,8 +263,24 @@ impl DomService {
         })
     }
 
-    /// Get DOM tree for a specific target
-    pub async fn get_dom_tree(&self, target_id: &str) -> Result<EnhancedDOMTreeNode> {
+    /// Get DOM tree for the current target
+    pub async fn get_dom_tree(&self, target_id: Option<&str>) -> Result<EnhancedDOMTreeNode> {
+        // Get target ID from parameter, stored value, or browser
+        let target = if let Some(tid) = target_id {
+            tid.to_string()
+        } else if let Some(ref tid) = self.current_target_id {
+            tid.clone()
+        } else if let Some(ref browser) = self.browser {
+            browser.get_current_target_id()?
+        } else {
+            return Err(BrowserUseError::Dom("Target ID required for DOM tree extraction".to_string()));
+        };
+        
+        self.get_dom_tree_by_target(&target).await
+    }
+
+    /// Get DOM tree for a specific target ID
+    async fn get_dom_tree_by_target(&self, target_id: &str) -> Result<EnhancedDOMTreeNode> {
         let (snapshot, dom_tree, ax_tree, device_pixel_ratio) = self._get_all_trees(target_id).await?;
 
         // Build AX tree lookup
@@ -462,31 +489,39 @@ impl DomService {
         Ok(enhanced_node)
     }
 
+    /// Get serialized DOM tree representation for LLM consumption
+    pub async fn get_serialized_dom_tree(
+        &self,
+        target_id: Option<&str>,
+    ) -> Result<(SerializedDOMState, EnhancedDOMTreeNode, HashMap<String, f64>)> {
+        // Get enhanced DOM tree
+        let enhanced_dom_tree = self.get_dom_tree(target_id).await?;
+
+        // Serialize the tree
+        let serializer = DOMTreeSerializer::new(enhanced_dom_tree.clone());
+        let (serialized_state, timing_info) = serializer.serialize_accessible_elements();
+
+        Ok((serialized_state, enhanced_dom_tree, timing_info))
+    }
+
     /// Get serialized DOM state from browser
     pub async fn get_serialized_dom_state(&self) -> Result<SerializedDOMState> {
-        // TODO: Implement full DOM tree extraction via CDP
-        // For now, return a basic structure
-        Ok(SerializedDOMState {
-            html: None,
-            text: None,
-            markdown: None,
-            elements: vec![],
-            selector_map: std::collections::HashMap::new(),
-        })
+        let (serialized_state, _, _) = self.get_serialized_dom_tree(None).await?;
+        Ok(serialized_state)
     }
 
     /// Get page state as string for LLM consumption
     pub async fn get_page_state_string(&self) -> Result<String> {
-        // TODO: Get actual DOM tree and serialize it
-        // For now, return a placeholder
-        Ok("Page state: DOM tree not yet extracted".to_string())
+        let (serialized_state, _, _) = self.get_serialized_dom_tree(None).await?;
+        Ok(serialized_state
+            .llm_representation(None)
+            .unwrap_or_else(|| "Empty DOM tree".to_string()))
     }
 
     /// Get selector map (index -> element mapping)
     pub async fn get_selector_map(&self) -> Result<std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>> {
-        // TODO: Build selector map from DOM tree
-        // For now, return empty map
-        Ok(std::collections::HashMap::new())
+        let (serialized_state, _, _) = self.get_serialized_dom_tree(None).await?;
+        Ok(serialized_state.selector_map)
     }
 
     /// Extract text content from HTML

@@ -60,18 +60,18 @@ pub struct SerializedDOMState {
 
 impl SerializedDOMState {
     /// Get LLM representation of the DOM state
-    pub fn llm_representation(&self, include_attributes: Option<&[&str]>) -> String {
-        // TODO: Implement full serialization
+    pub fn llm_representation(&self, _include_attributes: Option<&[&str]>) -> Option<String> {
+        // Prefer markdown, then text, then HTML
         if let Some(ref markdown) = self.markdown {
-            return markdown.clone();
+            return Some(markdown.clone());
         }
         if let Some(ref text) = self.text {
-            return text.clone();
+            return Some(text.clone());
         }
         if let Some(ref html) = self.html {
-            return html.clone();
+            return Some(html.clone());
         }
-        "Empty DOM tree".to_string()
+        None
     }
 }
 

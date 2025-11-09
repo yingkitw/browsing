@@ -54,6 +54,14 @@ impl<L: ChatModel> Agent<L> {
         // Start browser
         self.browser.start().await?;
 
+        // Initialize DOM service with browser's CDP client, session, and target ID
+        let cdp_client = self.browser.get_cdp_client()?;
+        let session_id = self.browser.get_session_id()?;
+        let target_id = self.browser.get_current_target_id()?;
+        self.dom_service = DomService::new()
+            .with_cdp_client(cdp_client, session_id)
+            .with_target_id(target_id);
+
         // Extract URL from task if present
         let initial_url = crate::utils::extract_urls(&self.task)
             .first()

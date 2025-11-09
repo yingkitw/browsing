@@ -13,6 +13,7 @@ pub struct Browser {
     cdp_url: Option<String>,
     sessions: HashMap<String, CdpSession>,
     current_target_id: Option<String>,
+    launcher: Option<crate::browser::launcher::BrowserLauncher>,
 }
 
 impl Browser {
@@ -23,6 +24,7 @@ impl Browser {
             cdp_url: None,
             sessions: HashMap::new(),
             current_target_id: None,
+            launcher: None,
         }
     }
 
@@ -60,10 +62,41 @@ impl Browser {
             // Store client reference (we'll need to handle this differently)
             // For now, we'll keep it in sessions
         } else {
-            // TODO: Launch browser locally
-            return Err(BrowserUseError::Browser(
-                "Local browser launch not yet implemented".to_string(),
-            ));
+            // Launch browser locally
+            use crate::browser::launcher::BrowserLauncher;
+            
+            let mut launcher = BrowserLauncher::new(self.profile.clone());
+            let cdp_url = launcher.launch().await?;
+            
+            // Store launcher for cleanup
+            self.launcher = Some(launcher);
+            
+            // Connect to the launched browser
+            self.cdp_url = Some(cdp_url.clone());
+            
+            // Now connect via CDP
+            let mut client = CdpClient::new(cdp_url);
+            client.start().await?;
+            let client_arc = Arc::new(client);
+            
+            // Get available targets
+            let targets = client_arc
+                .send_command("Target.getTargets", serde_json::json!({}))
+                .await?;
+            
+            if let Some(target_infos) = targets["targetInfos"].as_array() {
+                if let Some(first_target) = target_infos.first() {
+                    if let Some(target_id) = first_target["targetId"].as_str() {
+                        let session = CdpSession::for_target(
+                            Arc::clone(&client_arc),
+                            target_id.to_string(),
+                            None,
+                        ).await?;
+                        self.current_target_id = Some(target_id.to_string());
+                        self.sessions.insert(target_id.to_string(), session);
+                    }
+                }
+            }
         }
         
         Ok(())
@@ -95,9 +128,15 @@ impl Browser {
     }
 
     pub async fn stop(&mut self) -> Result<()> {
+        // Stop launcher if present
+        if let Some(ref mut launcher) = self.launcher {
+            launcher.stop().await?;
+        }
+        
         // Close all sessions
         self.sessions.clear();
         self.cdp_client = None;
+        self.launcher = None;
         Ok(())
     }
 
@@ -126,6 +165,13 @@ impl Browser {
         let client = self.get_cdp_client()?;
         let session_id = self.get_session_id()?;
         Ok(crate::actor::Page::new(client, session_id))
+    }
+
+    /// Get the current target ID
+    pub fn get_current_target_id(&self) -> Result<String> {
+        self.current_target_id
+            .clone()
+            .ok_or_else(|| BrowserUseError::Browser("No current target ID".to_string()))
     }
 }
 
