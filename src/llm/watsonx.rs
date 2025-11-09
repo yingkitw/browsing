@@ -133,7 +133,6 @@ impl ChatModel for WatsonxChat {
         
         // Convert response stream to string chunks
         // Parse SSE (Server-Sent Events) format
-        use futures::stream;
         let stream = response
             .bytes_stream()
             .map(|result| {

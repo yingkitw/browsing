@@ -6,7 +6,7 @@ use browser_use::agent::views::ActionResult;
 use browser_use::utils::extract_urls;
 use browser_use::browser::{Browser, BrowserProfile};
 use browser_use::llm::base::{ChatModel, ChatMessage, ChatInvokeCompletion, ChatInvokeUsage};
-use browser_use::error::Result;
+use browser_use::error::Result as BrowserUseResult;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
@@ -173,7 +173,7 @@ impl ChatModel for MockLLM {
         &self.provider_name
     }
 
-    async fn chat(&self, _messages: &[ChatMessage]) -> Result<ChatInvokeCompletion<String>> {
+    async fn chat(&self, _messages: &[ChatMessage]) -> BrowserUseResult<ChatInvokeCompletion<String>> {
         let mut index = self.current_index.lock().unwrap();
         let responses = self.responses.lock().unwrap();
         
@@ -213,7 +213,7 @@ impl ChatModel for MockLLM {
     async fn chat_stream(
         &self,
         _messages: &[ChatMessage],
-    ) -> Result<Box<dyn futures::Stream<Item = Result<String>> + Send + Unpin>> {
+    ) -> BrowserUseResult<Box<dyn futures::Stream<Item = BrowserUseResult<String>> + Send + Unpin>> {
         let response = self.chat(_messages).await?;
         let completion = response.completion;
         let stream = futures::stream::iter(vec![Ok(completion)]);
@@ -256,7 +256,7 @@ async fn test_tools_custom_action_registration() {
             &self,
             _params: &HashMap<String, serde_json::Value>,
             _browser: &mut Browser,
-        ) -> Result<ActionResult> {
+        ) -> BrowserUseResult<ActionResult> {
             Ok(ActionResult {
                 extracted_content: Some("Custom action executed".to_string()),
                 ..Default::default()

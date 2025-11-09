@@ -35,7 +35,7 @@ impl CdpClient {
 
         let (mut write, mut read) = ws_stream.split();
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let (tx_resp, mut rx_resp) = mpsc::unbounded_channel();
+        let (_tx_resp, rx_resp) = mpsc::unbounded_channel();
 
         *self.sender.lock().await = Some(tx);
         *self.receiver.lock().await = Some(rx_resp);

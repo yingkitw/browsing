@@ -1,7 +1,7 @@
 //! DOM serializer for LLM representation
 
 use crate::dom::views::{
-    EnhancedDOMTreeNode, NodeType, DOMRect, DOMInteractedElement, DEFAULT_INCLUDE_ATTRIBUTES,
+    EnhancedDOMTreeNode, NodeType, DOMInteractedElement, DEFAULT_INCLUDE_ATTRIBUTES,
 };
 use std::collections::HashMap;
 

@@ -1,6 +1,6 @@
 //! Mouse operations for browser automation
 
-use crate::error::{BrowserUseError, Result};
+use crate::error::Result;
 use crate::browser::cdp::CdpClient;
 use serde_json::json;
 use std::sync::Arc;
@@ -26,6 +26,7 @@ impl MouseButton {
 /// Mouse operations for a target
 pub struct Mouse {
     client: Arc<CdpClient>,
+    #[allow(dead_code)]
     session_id: String,
 }
 

@@ -1,7 +1,6 @@
 //! Action registry implementation
 
 use crate::tools::views::{ActionRegistry, RegisteredAction, ActionHandler};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Registry service for managing actions

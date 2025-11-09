@@ -215,7 +215,7 @@ impl Element {
 
     /// Get element text content
     pub async fn text(&self) -> Result<String> {
-        let node_id = self.get_node_id().await?;
+        let _node_id = self.get_node_id().await?;
         let script = format!(
             r#"
             (() => {{

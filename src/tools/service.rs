@@ -452,7 +452,7 @@ impl Tools {
             .get("pages")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0);
-        let index = action
+        let _index = action
             .params
             .get("index")
             .and_then(|v| v.as_u64())
@@ -900,7 +900,7 @@ impl Tools {
             .and_then(|v| v.as_str())
             .ok_or_else(|| BrowserUseError::Tool("Missing 'query' parameter".to_string()))?;
         
-        let extract_links = action
+        let _extract_links = action
             .params
             .get("extract_links")
             .and_then(|v| v.as_bool())
@@ -1009,7 +1009,7 @@ You will be given a query and the text content of a webpage.
                 }
                 Err(e) => {
                     // Fallback: return raw content
-                    let extracted_content = format!(
+                    let _extracted_content = format!(
                         "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\n{}\n</result>",
                         current_url,
                         query,

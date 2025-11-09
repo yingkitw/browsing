@@ -1,7 +1,6 @@
 //! Tests for browser session functionality
 
 use browser_use::browser::views::TabInfo;
-use serde_json::json;
 
 #[test]
 fn test_tab_info_creation() {

@@ -20,9 +20,13 @@ pub struct DomService {
     cdp_client: Option<Arc<CdpClient>>,
     session_id: Option<String>,
     current_target_id: Option<String>,
+    #[allow(dead_code)]
     cross_origin_iframes: bool,
+    #[allow(dead_code)]
     paint_order_filtering: bool,
+    #[allow(dead_code)]
     max_iframes: usize,
+    #[allow(dead_code)]
     max_iframe_depth: usize,
 }
 
@@ -139,7 +143,7 @@ impl DomService {
         let ax_tree_params = serde_json::json!({});
 
         // Get viewport ratio
-        let viewport_params = serde_json::json!({});
+        let _viewport_params = serde_json::json!({});
 
         // Execute all requests in parallel
         let snapshot_fut = client.send_command_with_session(

@@ -45,7 +45,7 @@ pub type Result<T> = std::result::Result<T, BrowserUseError>;
 
 #[cfg(test)]
 mod tests {
-    use super::{BrowserUseError, Result};
+    use super::BrowserUseError;
 
     #[test]
     fn test_browser_error() {

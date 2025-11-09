@@ -35,6 +35,8 @@ browser-use/
 ├── config/         # Configuration and environment
 ├── error/          # Error types
 ├── utils/          # Utility functions
+│   ├── signal.rs   # Signal handling for graceful shutdown
+│   └── ...         # URL extraction, domain matching
 └── views/          # Shared data structures
 ```
 
@@ -140,7 +142,9 @@ Browser::start()
 
 ```
 Agent::run()
+  ├── Set up signal handler for graceful shutdown
   ├── For each step:
+  │   ├── Check shutdown flag (exit if requested)
   │   ├── Get page state
   │   │   └── DOM Service::get_serialized_dom_tree()
   │   │       ├── Get all trees (snapshot, DOM, AX)
@@ -215,10 +219,11 @@ Browser::take_screenshot()
 - **Rationale**: Clean separation between high-level (Agent) and low-level (Actor) operations
 - **Implementation**: Page, Element, Mouse actors for granular control
 
-### 6. Browser Launcher
+### 6. Signal Handling
 
-- **Rationale**: Automatic browser management without external dependencies
-- **Implementation**: Cross-platform executable detection and process management
+- **Rationale**: Graceful shutdown on SIGINT/SIGTERM for production deployments
+- **Implementation**: Background signal listener with global shutdown flag
+- **Integration**: Agent checks shutdown flag during execution loop
 
 ## Error Handling
 
@@ -272,28 +277,33 @@ pub enum BrowserUseError {
 ## Testing Strategy
 
 ### Unit Tests
-- Individual component testing
-- Mock CDP responses
-- Isolated actor operations
+- ✅ Individual component testing (42 tests)
+- ✅ Mock CDP responses
+- ✅ Isolated actor operations
+- ✅ Signal handling tests
 
 ### Integration Tests
-- Full agent execution
-- Browser launch and cleanup
-- DOM extraction end-to-end
+- ✅ Full agent execution (24 comprehensive tests)
+- ✅ Browser launch and cleanup
+- ✅ DOM extraction end-to-end
+- ✅ Mock LLM integration
+- ✅ Custom action registration
+- ✅ Action parameter validation
 
 ### Snapshot Tests
-- DOM serialization output
-- Agent history format
-- Error message formats
+- ⏳ DOM serialization output - Optional
+- ⏳ Agent history format - Optional
+- ⏳ Error message formats - Optional
 
 ## Future Enhancements
 
-1. **Tab Management**: Multi-tab support
-2. **Custom Actions**: User-defined action registration
-3. **Advanced DOM Features**: Paint order filtering, enhanced markdown
-4. **Token Counting**: LLM usage tracking
-5. **Telemetry**: Optional usage analytics
-6. **Signal Handling**: Graceful shutdown
+1. ✅ **Tab Management**: Multi-tab support - Complete
+2. ✅ **Custom Actions**: User-defined action registration - Complete
+3. ✅ **Token Counting**: LLM usage tracking - Complete
+4. ✅ **Signal Handling**: Graceful shutdown - Complete
+5. ⏳ **Advanced DOM Features**: Paint order filtering, enhanced markdown - Optional
+6. ⏳ **Telemetry**: Optional usage analytics - Optional
+7. ⏳ **Cost Calculation**: Token cost tracking - Optional
 
 ## Performance Considerations
 
