@@ -243,5 +243,91 @@ impl Element {
 
         Ok(text)
     }
+
+    /// Get element bounding box
+    pub async fn get_bounding_box(&self) -> Result<Option<(f64, f64, f64, f64)>> {
+        // Try DOM.getContentQuads first
+        let quads_result = self
+            .client
+            .send_command(
+                "DOM.getContentQuads",
+                json!({ "backendNodeId": self.backend_node_id }),
+            )
+            .await;
+
+        if let Ok(quads_result) = quads_result {
+            if let Some(quads) = quads_result.get("quads").and_then(|v| v.as_array()) {
+                if let Some(first_quad) = quads.first().and_then(|v| v.as_array()) {
+                    if first_quad.len() >= 8 {
+                        // Calculate bounding box from quad
+                        let x_coords: Vec<f64> = first_quad
+                            .iter()
+                            .step_by(2)
+                            .filter_map(|v| v.as_f64())
+                            .collect();
+                        let y_coords: Vec<f64> = first_quad
+                            .iter()
+                            .skip(1)
+                            .step_by(2)
+                            .filter_map(|v| v.as_f64())
+                            .collect();
+
+                        if !x_coords.is_empty() && !y_coords.is_empty() {
+                            let min_x = x_coords.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                            let max_x = x_coords.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                            let min_y = y_coords.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                            let max_y = y_coords.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                            
+                            let width = max_x - min_x;
+                            let height = max_y - min_y;
+                            
+                            return Ok(Some((min_x, min_y, width, height)));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Take a screenshot of this element
+    pub async fn screenshot(&self, format: Option<&str>, quality: Option<u32>) -> Result<String> {
+        // Get element's bounding box
+        let (x, y, width, height) = self
+            .get_bounding_box()
+            .await?
+            .ok_or_else(|| BrowserUseError::Browser("Element is not visible or has no bounding box".to_string()))?;
+
+        let format = format.unwrap_or("png");
+        let mut params = json!({
+            "format": format,
+            "clip": {
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "scale": 1.0
+            }
+        });
+
+        if format == "jpeg" {
+            if let Some(q) = quality {
+                params["quality"] = json!(q);
+            }
+        }
+
+        let result = self
+            .client
+            .send_command_with_session("Page.captureScreenshot", params, Some(&self.session_id))
+            .await?;
+
+        let data = result
+            .get("data")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| BrowserUseError::Browser("No screenshot data".to_string()))?;
+
+        Ok(data.to_string())
+    }
 }
 

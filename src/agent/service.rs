@@ -20,6 +20,39 @@ pub struct Agent<L: ChatModel> {
     settings: AgentSettings,
     state: AgentState,
     history: AgentHistoryList,
+    usage_tracker: UsageTracker,
+}
+
+/// Simple usage tracker that aggregates token counts
+struct UsageTracker {
+    total_prompt_tokens: u32,
+    total_completion_tokens: u32,
+    total_tokens: u32,
+}
+
+impl UsageTracker {
+    fn new() -> Self {
+        Self {
+            total_prompt_tokens: 0,
+            total_completion_tokens: 0,
+            total_tokens: 0,
+        }
+    }
+
+    fn add_usage(&mut self, usage: &crate::llm::base::ChatInvokeUsage) {
+        self.total_prompt_tokens += usage.prompt_tokens;
+        self.total_completion_tokens += usage.completion_tokens;
+        self.total_tokens += usage.total_tokens;
+    }
+
+    fn to_summary(&self) -> crate::tokens::views::UsageSummary {
+        crate::tokens::views::UsageSummary {
+            prompt_tokens: Some(self.total_prompt_tokens),
+            completion_tokens: Some(self.total_completion_tokens),
+            total_tokens: Some(self.total_tokens),
+            cost: None, // Cost calculation can be added later
+        }
+    }
 }
 
 impl<L: ChatModel> Agent<L> {
@@ -37,6 +70,7 @@ impl<L: ChatModel> Agent<L> {
                 history: vec![],
                 usage: None,
             },
+            usage_tracker: UsageTracker::new(),
         }
     }
 
@@ -85,6 +119,11 @@ impl<L: ChatModel> Agent<L> {
             // Get next action from LLM
             let response = self.llm.chat(&messages).await?;
 
+            // Track token usage if available
+            if let Some(ref usage) = response.usage {
+                self.track_usage(usage);
+            }
+
             // Parse AgentOutput from LLM response
             let agent_output = self.parse_agent_output(&response.completion)?;
 
@@ -128,7 +167,15 @@ impl<L: ChatModel> Agent<L> {
             }
         }
 
+        // Update history with final usage summary
+        self.history.usage = Some(self.usage_tracker.to_summary());
+        
         Ok(self.history.clone())
+    }
+
+    /// Track token usage from an LLM response
+    fn track_usage(&mut self, usage: &crate::llm::base::ChatInvokeUsage) {
+        self.usage_tracker.add_usage(usage);
     }
 
     async fn get_page_state(&self) -> Result<String> {

@@ -37,14 +37,35 @@ impl ActionModel {
     }
 }
 
+/// Trait for custom action handlers
+#[async_trait::async_trait]
+pub trait ActionHandler: Send + Sync {
+    async fn execute(
+        &self,
+        params: &HashMap<String, serde_json::Value>,
+        browser: &mut crate::browser::Browser,
+    ) -> crate::error::Result<crate::agent::views::ActionResult>;
+}
+
 /// Model for a registered action
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RegisteredAction {
     pub name: String,
     pub description: String,
     pub domains: Option<Vec<String>>,
-    // In Rust, we'll use a function pointer or trait object for the function
-    // This is a simplified version - full implementation would use async trait
+    pub handler: Option<std::sync::Arc<dyn ActionHandler>>,
+}
+
+// Manual Debug implementation since we can't derive it due to trait object
+impl std::fmt::Debug for RegisteredAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RegisteredAction")
+            .field("name", &self.name)
+            .field("description", &self.description)
+            .field("domains", &self.domains)
+            .field("handler", &if self.handler.is_some() { "Some(handler)" } else { "None" })
+            .finish()
+    }
 }
 
 impl RegisteredAction {

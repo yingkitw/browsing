@@ -174,9 +174,21 @@ impl Page {
 
     /// Take a screenshot
     pub async fn screenshot(&self, format: Option<&str>, quality: Option<u32>) -> Result<String> {
+        self.screenshot_with_options(format, quality, false, None).await
+    }
+
+    /// Take a screenshot with additional options
+    pub async fn screenshot_with_options(
+        &self,
+        format: Option<&str>,
+        quality: Option<u32>,
+        full_page: bool,
+        clip: Option<(f64, f64, f64, f64)>,
+    ) -> Result<String> {
         let format = format.unwrap_or("png");
         let mut params = json!({
-            "format": format
+            "format": format,
+            "captureBeyondViewport": full_page
         });
 
         if format == "jpeg" {
@@ -185,9 +197,19 @@ impl Page {
             }
         }
 
+        if let Some((x, y, width, height)) = clip {
+            params["clip"] = json!({
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "scale": 1.0
+            });
+        }
+
         let result = self
             .client
-            .send_command("Page.captureScreenshot", params)
+            .send_command_with_session("Page.captureScreenshot", params, Some(&self.session_id))
             .await?;
 
         let data = result
