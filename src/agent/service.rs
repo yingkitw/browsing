@@ -1,5 +1,6 @@
 //! Agent service implementation
 
+use crate::agent::json_extractor::JSONExtractor;
 use crate::agent::views::{
     ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState,
 };
@@ -226,9 +227,9 @@ impl<L: ChatModel> Agent<L> {
     }
 
     fn parse_agent_output(&self, response: &str) -> Result<AgentOutput> {
-        // Try to parse JSON from response
-        // First, try to extract JSON from markdown code blocks if present
-        let json_str = self.extract_json_from_response(response);
+        // Use JSONExtractor to extract JSON from response
+        let extractor = JSONExtractor::new();
+        let json_str = extractor.extract_from_response(response);
 
         // Try to repair JSON if needed using anyrepair
         // First try to parse directly, if that fails, try to repair
@@ -250,32 +251,6 @@ impl<L: ChatModel> Agent<L> {
         })?;
 
         Ok(agent_output)
-    }
-
-    fn extract_json_from_response(&self, response: &str) -> String {
-        // Try to extract JSON from markdown code blocks
-        if let Some(start) = response.find("```json") {
-            if let Some(end) = response[start..].find("```") {
-                return response[start + 7..start + end].trim().to_string();
-            }
-        }
-        if let Some(start) = response.find("```") {
-            if let Some(end) = response[start + 3..].find("```") {
-                let code = response[start + 3..start + 3 + end].trim();
-                if code.starts_with('{') || code.starts_with('[') {
-                    return code.to_string();
-                }
-            }
-        }
-
-        // Try to find JSON object/array in the response
-        if let Some(start) = response.find('{') {
-            if let Some(end) = response.rfind('}') {
-                return response[start..=end].to_string();
-            }
-        }
-
-        response.to_string()
     }
 
     async fn execute_action(&mut self, action: &ActionModel) -> Result<ActionResult> {

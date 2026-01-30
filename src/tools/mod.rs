@@ -1,5 +1,6 @@
 //! Tools and actions registry
 
+pub mod handlers;
 pub mod registry;
 pub mod service;
 pub mod views;

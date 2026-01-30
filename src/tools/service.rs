@@ -3,8 +3,9 @@
 use crate::agent::views::ActionResult;
 use crate::browser::Browser;
 use crate::error::{BrowserUseError, Result};
+use crate::tools::handlers::{AdvancedHandler, ContentHandler, InteractionHandler, NavigationHandler, TabsHandler, Handler};
 use crate::tools::registry::Registry;
-use crate::tools::views::ActionModel;
+use crate::tools::views::{ActionContext, ActionModel, ActionParams};
 use serde_json::json;
 use tracing::info;
 
@@ -162,42 +163,43 @@ impl Tools {
 
         // Check if this is a custom action with a handler
         if let Some(handler) = self.registry.get_handler(action_type) {
-            return handler.execute(&action.params, browser_session).await;
+            let params = ActionParams::new(&action.params).with_action_type(action.action_type.clone());
+            let mut context = ActionContext {
+                browser: browser_session,
+                selector_map,
+            };
+            return handler.execute(&params, &mut context).await;
         }
 
-        // Otherwise, use built-in handlers
+        // Use new handler-based dispatch for built-in actions
+        let params = ActionParams::new(&action.params).with_action_type(action.action_type.clone());
+        let mut context = ActionContext {
+            browser: browser_session,
+            selector_map,
+        };
+
         match action_type {
-            "search" => self.handle_search(action, browser_session).await,
-            "navigate" => self.handle_navigate(action, browser_session).await,
-            "click" => {
-                self.handle_click(action, browser_session, selector_map)
-                    .await
+            // Navigation actions
+            "search" | "navigate" | "go_back" => {
+                NavigationHandler.handle(&params, &mut context).await
             }
-            "input" => {
-                self.handle_input(action, browser_session, selector_map)
-                    .await
+            // Interaction actions
+            "click" | "input" | "send_keys" => {
+                InteractionHandler.handle(&params, &mut context).await
             }
-            "done" => self.handle_done(action).await,
-            "switch" => self.handle_switch_tab(action, browser_session).await,
-            "close" => self.handle_close_tab(action, browser_session).await,
-            "scroll" => self.handle_scroll(action, browser_session).await,
-            "go_back" => self.handle_go_back(action, browser_session).await,
-            "wait" => self.handle_wait(action).await,
-            "send_keys" => self.handle_send_keys(action, browser_session).await,
-            "evaluate" => self.handle_evaluate(action, browser_session).await,
-            "find_text" => self.handle_find_text(action, browser_session).await,
-            "dropdown_options" => {
-                self.handle_dropdown_options(action, browser_session, selector_map)
-                    .await
+            // Tab actions
+            "switch" | "close" => {
+                TabsHandler.handle(&params, &mut context).await
             }
-            "select_dropdown" => {
-                self.handle_select_dropdown(action, browser_session, selector_map)
-                    .await
+            // Content actions
+            "scroll" | "find_text" | "dropdown_options" | "select_dropdown" => {
+                ContentHandler.handle(&params, &mut context).await
             }
-            "upload_file" => {
-                self.handle_upload_file(action, browser_session, selector_map)
-                    .await
+            // Advanced actions
+            "done" | "evaluate" | "upload_file" | "wait" => {
+                AdvancedHandler.handle(&params, &mut context).await
             }
+            // Extract action (requires LLM - use old method for now)
             "extract" => self.handle_extract(action, browser_session, llm).await,
             _ => Err(BrowserUseError::Tool(format!(
                 "Unknown action type: {action_type}"

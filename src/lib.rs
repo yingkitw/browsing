@@ -12,6 +12,7 @@ pub mod llm;
 pub mod logging;
 pub mod tokens;
 pub mod tools;
+pub mod traits;
 pub mod utils;
 pub mod views;
 
@@ -23,6 +24,7 @@ pub use agent::Agent;
 pub use browser::Browser;
 pub use config::Config;
 pub use llm::{ChatMessage, ChatModel, WatsonxChat};
+pub use traits::{BrowserClient, DOMProcessor};
 
 /// Initialize the library (sets up logging, etc.)
 pub fn init() {

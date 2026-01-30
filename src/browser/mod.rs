@@ -1,5 +1,6 @@
 //! Browser session management
 
+mod session_guard;
 pub mod cdp;
 pub mod launcher;
 pub mod profile;
