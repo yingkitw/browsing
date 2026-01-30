@@ -430,27 +430,3 @@ Generate and view API docs:
 ```bash
 cargo doc --open
 ```
-
-## 🤝 Contributing
-
-Contributions are welcome! The codebase follows these principles:
-
-1. **Trait-based abstractions** - Use traits for extensibility
-2. **Separation of concerns** - Keep modules focused
-3. **DRY** - Extract common patterns
-4. **KISS** - Keep implementations simple
-5. **Test coverage** - Add tests for new features
-
-See [TODO.md](TODO.md) for planned enhancements and [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🙏 Acknowledgments
-
-Inspired by [browser-use](https://github.com/browser-use/browser-use) - Python implementation of autonomous web browsing for AI agents.
-
----
-
-**Made with ❤️ for AI agents that need to browse the web**
