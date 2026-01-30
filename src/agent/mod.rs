@@ -4,4 +4,3 @@ pub mod service;
 pub mod views;
 
 pub use service::Agent;
-

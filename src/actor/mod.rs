@@ -1,12 +1,11 @@
 //! Actor module for low-level browser interactions
 
-pub mod page;
 pub mod element;
-pub mod mouse;
 pub mod keyboard;
+pub mod mouse;
+pub mod page;
 
-pub use page::Page;
 pub use element::Element;
-pub use mouse::Mouse;
 pub use keyboard::get_key_info;
-
+pub use mouse::Mouse;
+pub use page::Page;

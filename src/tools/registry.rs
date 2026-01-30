@@ -1,15 +1,18 @@
 //! Action registry implementation
 
-use crate::tools::views::{ActionRegistry, RegisteredAction, ActionHandler};
+use crate::tools::views::{ActionHandler, ActionRegistry, RegisteredAction};
 use std::sync::Arc;
 
 /// Registry service for managing actions
 pub struct Registry {
+    /// Action registry instance
     pub registry: ActionRegistry,
+    /// List of actions to exclude
     pub exclude_actions: Vec<String>,
 }
 
 impl Registry {
+    /// Creates a new registry with excluded actions
     pub fn new(exclude_actions: Vec<String>) -> Self {
         Self {
             registry: ActionRegistry::new(),
@@ -17,6 +20,7 @@ impl Registry {
         }
     }
 
+    /// Registers a new action
     pub fn register_action(
         &mut self,
         name: String,
@@ -74,4 +78,3 @@ impl Registry {
             .and_then(|a| a.handler.clone())
     }
 }
-

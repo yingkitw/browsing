@@ -1,16 +1,16 @@
 //! Comprehensive integration tests for browser-use
 
-use browser_use::tools::service::Tools;
-use browser_use::tools::views::{ActionModel, ActionHandler};
-use browser_use::agent::views::ActionResult;
-use browser_use::utils::extract_urls;
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::llm::base::{ChatModel, ChatMessage, ChatInvokeCompletion, ChatInvokeUsage};
-use browser_use::error::Result as BrowserUseResult;
 use async_trait::async_trait;
+use browser_use::agent::views::ActionResult;
+use browser_use::browser::{Browser, BrowserProfile};
+use browser_use::error::Result as BrowserUseResult;
+use browser_use::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel};
+use browser_use::tools::service::Tools;
+use browser_use::tools::views::{ActionHandler, ActionModel};
+use browser_use::utils::extract_urls;
 use serde_json::json;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 #[tokio::test]
 async fn test_tools_creation() {
@@ -24,14 +24,14 @@ async fn test_action_model_creation() {
     let params_json = json!({
         "query": "test"
     });
-    let params: std::collections::HashMap<String, serde_json::Value> = 
+    let params: std::collections::HashMap<String, serde_json::Value> =
         serde_json::from_value(params_json).unwrap();
-    
+
     let action = ActionModel {
         action_type: "search".to_string(),
         params,
     };
-    
+
     assert_eq!(action.action_type, "search");
     assert!(action.params.get("query").is_some());
 }
@@ -62,18 +62,18 @@ fn test_action_model_serialization() {
         "url": "https://example.com",
         "new_tab": false
     });
-    let params: std::collections::HashMap<String, serde_json::Value> = 
+    let params: std::collections::HashMap<String, serde_json::Value> =
         serde_json::from_value(params_json).unwrap();
-    
+
     let action = ActionModel {
         action_type: "navigate".to_string(),
         params,
     };
-    
+
     // Test that we can serialize and deserialize
     let json_str = serde_json::to_string(&action).unwrap();
     let deserialized: ActionModel = serde_json::from_str(&json_str).unwrap();
-    
+
     assert_eq!(deserialized.action_type, "navigate");
     assert_eq!(
         deserialized.params.get("url").and_then(|v| v.as_str()),
@@ -100,11 +100,11 @@ fn test_action_model_all_actions() {
         ("extract", json!({"query": "extract data"})),
         ("done", json!({"text": "completed", "success": true})),
     ];
-    
+
     for (action_type, params_json) in actions {
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: action_type.to_string(),
             params,
@@ -126,6 +126,7 @@ pub struct MockLLM {
 }
 
 impl MockLLM {
+    /// Creates a new MockLLM with predefined responses
     pub fn new(responses: Vec<String>) -> Self {
         Self {
             responses: Arc::new(Mutex::new(responses)),
@@ -135,31 +136,39 @@ impl MockLLM {
         }
     }
 
+    /// Creates a MockLLM that returns a "done" action
     pub fn with_done_action() -> Self {
-        Self::new(vec![json!({
-            "thinking": "Task completed",
-            "evaluation_previous_goal": "Successfully completed the task",
-            "memory": "Task completed",
-            "next_goal": "Task completed",
-            "action": [{
-                "done": {
-                    "text": "Task completed successfully",
-                    "success": true
-                }
-            }]
-        }).to_string()])
+        Self::new(vec![
+            json!({
+                "thinking": "Task completed",
+                "evaluation_previous_goal": "Successfully completed the task",
+                "memory": "Task completed",
+                "next_goal": "Task completed",
+                "action": [{
+                    "done": {
+                        "text": "Task completed successfully",
+                        "success": true
+                    }
+                }]
+            })
+            .to_string(),
+        ])
     }
 
+    /// Creates a MockLLM that returns a navigate action
     pub fn with_navigate_action(url: &str) -> Self {
-        Self::new(vec![json!({
-            "thinking": "Navigating to page",
-            "action": [{
-                "navigate": {
-                    "url": url,
-                    "new_tab": false
-                }
-            }]
-        }).to_string()])
+        Self::new(vec![
+            json!({
+                "thinking": "Navigating to page",
+                "action": [{
+                    "navigate": {
+                        "url": url,
+                        "new_tab": false
+                    }
+                }]
+            })
+            .to_string(),
+        ])
     }
 }
 
@@ -173,10 +182,13 @@ impl ChatModel for MockLLM {
         &self.provider_name
     }
 
-    async fn chat(&self, _messages: &[ChatMessage]) -> BrowserUseResult<ChatInvokeCompletion<String>> {
+    async fn chat(
+        &self,
+        _messages: &[ChatMessage],
+    ) -> BrowserUseResult<ChatInvokeCompletion<String>> {
         let mut index = self.current_index.lock().unwrap();
         let responses = self.responses.lock().unwrap();
-        
+
         let response = if *index < responses.len() {
             responses[*index].clone()
         } else {
@@ -189,11 +201,12 @@ impl ChatModel for MockLLM {
                         "success": true
                     }
                 }]
-            }).to_string()
+            })
+            .to_string()
         };
-        
+
         *index += 1;
-        
+
         Ok(ChatInvokeCompletion {
             completion: response,
             thinking: None,
@@ -213,7 +226,8 @@ impl ChatModel for MockLLM {
     async fn chat_stream(
         &self,
         _messages: &[ChatMessage],
-    ) -> BrowserUseResult<Box<dyn futures::Stream<Item = BrowserUseResult<String>> + Send + Unpin>> {
+    ) -> BrowserUseResult<Box<dyn futures::Stream<Item = BrowserUseResult<String>> + Send + Unpin>>
+    {
         let response = self.chat(_messages).await?;
         let completion = response.completion;
         let stream = futures::stream::iter(vec![Ok(completion)]);
@@ -228,20 +242,32 @@ impl ChatModel for MockLLM {
 #[tokio::test]
 async fn test_tools_action_registration() {
     let tools = Tools::new(vec![]);
-    
+
     // Verify all default actions are registered
     let default_actions = vec![
-        "search", "navigate", "click", "input", "done",
-        "switch", "close", "scroll", "go_back", "wait",
-        "send_keys", "evaluate", "find_text", "dropdown_options",
-        "select_dropdown", "upload_file", "extract",
+        "search",
+        "navigate",
+        "click",
+        "input",
+        "done",
+        "switch",
+        "close",
+        "scroll",
+        "go_back",
+        "wait",
+        "send_keys",
+        "evaluate",
+        "find_text",
+        "dropdown_options",
+        "select_dropdown",
+        "upload_file",
+        "extract",
     ];
-    
+
     for action_name in default_actions {
         assert!(
             tools.registry.registry.actions.contains_key(action_name),
-            "Action '{}' should be registered",
-            action_name
+            "Action '{action_name}' should be registered"
         );
     }
 }
@@ -249,7 +275,7 @@ async fn test_tools_action_registration() {
 #[tokio::test]
 async fn test_tools_custom_action_registration() {
     struct TestActionHandler;
-    
+
     #[async_trait]
     impl ActionHandler for TestActionHandler {
         async fn execute(
@@ -263,7 +289,7 @@ async fn test_tools_custom_action_registration() {
             })
         }
     }
-    
+
     let mut tools = Tools::new(vec![]);
     tools.register_custom_action(
         "custom_test".to_string(),
@@ -271,7 +297,7 @@ async fn test_tools_custom_action_registration() {
         None,
         TestActionHandler,
     );
-    
+
     assert!(tools.registry.registry.actions.contains_key("custom_test"));
     assert!(tools.registry.has_custom_handler("custom_test"));
 }
@@ -280,23 +306,23 @@ async fn test_tools_custom_action_registration() {
 async fn test_tools_action_validation() {
     // Test valid action
     let _tools = Tools::new(vec![]);
-    
-    let params: HashMap<String, serde_json::Value> = 
-        serde_json::from_value(json!({
-            "text": "Test",
-            "success": true
-        })).unwrap();
+
+    let params: HashMap<String, serde_json::Value> = serde_json::from_value(json!({
+        "text": "Test",
+        "success": true
+    }))
+    .unwrap();
     let valid_action = ActionModel {
         action_type: "done".to_string(),
         params,
     };
-    
+
     // Test invalid action type
     let invalid_action = ActionModel {
         action_type: "nonexistent_action".to_string(),
         params: HashMap::new(),
     };
-    
+
     // Actions should be parseable even if invalid
     assert_eq!(valid_action.action_type, "done");
     assert_eq!(invalid_action.action_type, "nonexistent_action");
@@ -305,16 +331,16 @@ async fn test_tools_action_validation() {
 #[tokio::test]
 async fn test_mock_llm_basic() {
     let llm = MockLLM::with_done_action();
-    
+
     let messages = vec![
         ChatMessage::system("You are a helpful assistant".to_string()),
         ChatMessage::user("Complete the task".to_string()),
     ];
-    
+
     let response = llm.chat(&messages).await.unwrap();
     assert!(!response.completion.is_empty());
     assert!(response.usage.is_some());
-    
+
     let usage = response.usage.unwrap();
     assert_eq!(usage.total_tokens, 150);
 }
@@ -325,15 +351,15 @@ async fn test_mock_llm_multiple_responses() {
         json!({"action": [{"navigate": {"url": "https://example.com"}}]}).to_string(),
         json!({"action": [{"done": {"text": "Done", "success": true}}]}).to_string(),
     ];
-    
+
     let llm = MockLLM::new(responses);
-    
+
     let messages = vec![ChatMessage::user("Test".to_string())];
-    
+
     // First call
     let response1 = llm.chat(&messages).await.unwrap();
     assert!(response1.completion.contains("navigate"));
-    
+
     // Second call
     let response2 = llm.chat(&messages).await.unwrap();
     assert!(response2.completion.contains("done"));
@@ -352,12 +378,12 @@ fn test_action_result_completion_detection() {
         success: Some(true),
         ..Default::default()
     };
-    
+
     let not_done_result = ActionResult {
         is_done: Some(false),
         ..Default::default()
     };
-    
+
     assert_eq!(done_result.is_done, Some(true));
     assert_eq!(not_done_result.is_done, Some(false));
 }
@@ -369,7 +395,7 @@ fn test_action_result_error_handling() {
         success: Some(false),
         ..Default::default()
     };
-    
+
     assert!(error_result.error.is_some());
     assert_eq!(error_result.success, Some(false));
 }
@@ -377,11 +403,11 @@ fn test_action_result_error_handling() {
 #[tokio::test]
 async fn test_tools_exclude_actions() {
     let tools = Tools::new(vec!["search".to_string(), "navigate".to_string()]);
-    
+
     // Excluded actions should not be registered
     assert!(!tools.registry.registry.actions.contains_key("search"));
     assert!(!tools.registry.registry.actions.contains_key("navigate"));
-    
+
     // Other actions should still be registered
     assert!(tools.registry.registry.actions.contains_key("done"));
     assert!(tools.registry.registry.actions.contains_key("click"));
@@ -392,11 +418,11 @@ fn test_url_extraction_edge_cases() {
     // Test empty string
     let urls = extract_urls("");
     assert!(urls.is_empty());
-    
+
     // Test text without URLs
     let urls = extract_urls("This is just plain text");
     assert!(urls.is_empty());
-    
+
     // Test multiple URLs
     let text = "Visit https://example.com and https://test.org and http://another.com";
     let urls = extract_urls(text);
@@ -406,68 +432,86 @@ fn test_url_extraction_edge_cases() {
 #[test]
 fn test_action_model_parameter_types() {
     // Test string parameter
-    let params: HashMap<String, serde_json::Value> = 
+    let params: HashMap<String, serde_json::Value> =
         serde_json::from_value(json!({"query": "test"})).unwrap();
     let action = ActionModel {
         action_type: "search".to_string(),
         params,
     };
-    assert_eq!(action.params.get("query").and_then(|v| v.as_str()), Some("test"));
-    
+    assert_eq!(
+        action.params.get("query").and_then(|v| v.as_str()),
+        Some("test")
+    );
+
     // Test number parameter
-    let params: HashMap<String, serde_json::Value> = 
+    let params: HashMap<String, serde_json::Value> =
         serde_json::from_value(json!({"index": 5})).unwrap();
     let action = ActionModel {
         action_type: "click".to_string(),
         params,
     };
     assert_eq!(action.params.get("index").and_then(|v| v.as_u64()), Some(5));
-    
+
     // Test boolean parameter
-    let params: HashMap<String, serde_json::Value> = 
+    let params: HashMap<String, serde_json::Value> =
         serde_json::from_value(json!({"down": true})).unwrap();
     let action = ActionModel {
         action_type: "scroll".to_string(),
         params,
     };
-    assert_eq!(action.params.get("down").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        action.params.get("down").and_then(|v| v.as_bool()),
+        Some(true)
+    );
 }
 
 #[test]
 fn test_action_model_nested_parameters() {
-    let params: HashMap<String, serde_json::Value> = 
-        serde_json::from_value(json!({
-            "url": "https://example.com",
-            "new_tab": false,
-            "wait_for": "load"
-        })).unwrap();
+    let params: HashMap<String, serde_json::Value> = serde_json::from_value(json!({
+        "url": "https://example.com",
+        "new_tab": false,
+        "wait_for": "load"
+    }))
+    .unwrap();
     let action = ActionModel {
         action_type: "navigate".to_string(),
         params,
     };
-    
-    assert_eq!(action.params.get("url").and_then(|v| v.as_str()), Some("https://example.com"));
-    assert_eq!(action.params.get("new_tab").and_then(|v| v.as_bool()), Some(false));
-    assert_eq!(action.params.get("wait_for").and_then(|v| v.as_str()), Some("load"));
+
+    assert_eq!(
+        action.params.get("url").and_then(|v| v.as_str()),
+        Some("https://example.com")
+    );
+    assert_eq!(
+        action.params.get("new_tab").and_then(|v| v.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        action.params.get("wait_for").and_then(|v| v.as_str()),
+        Some("load")
+    );
 }
 
 #[tokio::test]
 async fn test_tools_registry_action_count() {
     let tools = Tools::new(vec![]);
     let action_count = tools.registry.registry.actions.len();
-    
+
     // Should have at least the core actions registered
-    assert!(action_count >= 10, "Should have at least 10 default actions");
+    assert!(
+        action_count >= 10,
+        "Should have at least 10 default actions"
+    );
 }
 
 #[test]
 fn test_chat_message_creation() {
     let system_msg = ChatMessage::system("System message".to_string());
     assert_eq!(system_msg.role, "system");
-    
+
     let user_msg = ChatMessage::user("User message".to_string());
     assert_eq!(user_msg.role, "user");
-    
+
     let assistant_msg = ChatMessage::assistant("Assistant message".to_string());
     assert_eq!(assistant_msg.role, "assistant");
 }
@@ -482,7 +526,7 @@ fn test_chat_invoke_usage_tracking() {
         completion_tokens: 500,
         total_tokens: 1500,
     };
-    
+
     assert_eq!(usage.prompt_tokens, 1000);
     assert_eq!(usage.completion_tokens, 500);
     assert_eq!(usage.total_tokens, 1500);
@@ -498,10 +542,10 @@ fn test_action_result_serialization_roundtrip() {
         long_term_memory: Some("Memory".to_string()),
         ..Default::default()
     };
-    
+
     let json_str = serde_json::to_string(&original).unwrap();
     let deserialized: ActionResult = serde_json::from_str(&json_str).unwrap();
-    
+
     assert_eq!(original.is_done, deserialized.is_done);
     assert_eq!(original.extracted_content, deserialized.extracted_content);
     assert_eq!(original.long_term_memory, deserialized.long_term_memory);
@@ -510,18 +554,21 @@ fn test_action_result_serialization_roundtrip() {
 #[tokio::test]
 async fn test_tools_action_parameter_extraction() {
     // Test that action parameters can be correctly extracted
-    let params: HashMap<String, serde_json::Value> = 
-        serde_json::from_value(json!({
-            "index": 1,
-            "text": "Hello World"
-        })).unwrap();
+    let params: HashMap<String, serde_json::Value> = serde_json::from_value(json!({
+        "index": 1,
+        "text": "Hello World"
+    }))
+    .unwrap();
     let action = ActionModel {
         action_type: "input".to_string(),
         params,
     };
-    
+
     assert_eq!(action.params.get("index").and_then(|v| v.as_u64()), Some(1));
-    assert_eq!(action.params.get("text").and_then(|v| v.as_str()), Some("Hello World"));
+    assert_eq!(
+        action.params.get("text").and_then(|v| v.as_str()),
+        Some("Hello World")
+    );
 }
 
 #[test]
@@ -529,7 +576,10 @@ fn test_comprehensive_action_model_coverage() {
     // Test all action types with their typical parameters
     let test_cases = vec![
         ("search", json!({"query": "test query"})),
-        ("navigate", json!({"url": "https://example.com", "new_tab": false})),
+        (
+            "navigate",
+            json!({"url": "https://example.com", "new_tab": false}),
+        ),
         ("click", json!({"index": 0})),
         ("input", json!({"index": 1, "text": "input text"})),
         ("scroll", json!({"down": true, "pages": 2.0})),
@@ -540,21 +590,23 @@ fn test_comprehensive_action_model_coverage() {
         ("dropdown_options", json!({"index": 0})),
         ("select_dropdown", json!({"index": 0, "text": "option"})),
         ("upload_file", json!({"index": 0, "path": "/path/to/file"})),
-        ("extract", json!({"query": "extract query", "extract_links": false})),
+        (
+            "extract",
+            json!({"query": "extract query", "extract_links": false}),
+        ),
         ("done", json!({"text": "Task done", "success": true})),
     ];
-    
+
     for (action_type, params_json) in test_cases {
-        let params: HashMap<String, serde_json::Value> = 
+        let params: HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: action_type.to_string(),
             params: params.clone(),
         };
-        
+
         assert_eq!(action.action_type, action_type);
         assert_eq!(action.params.len(), params.len());
     }
 }
-

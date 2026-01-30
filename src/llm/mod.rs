@@ -1,8 +1,7 @@
 //! LLM integration modules
 
-pub mod watsonx;
 pub mod base;
+pub mod watsonx;
 
-pub use base::{ChatModel, ChatMessage, ChatInvokeCompletion, ChatInvokeUsage};
+pub use base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel};
 pub use watsonx::WatsonxChat;
-

@@ -1,9 +1,9 @@
 //! Signal handling for graceful shutdown
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::signal;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Global flag to track if shutdown was requested
 static SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
@@ -129,7 +129,7 @@ mod tests {
     fn test_shutdown_flag() {
         let handler = SignalHandler::new();
         assert!(!handler.is_shutdown_requested());
-        
+
         handler.set_shutdown();
         assert!(handler.is_shutdown_requested());
         assert!(is_shutdown_requested());
@@ -137,9 +137,10 @@ mod tests {
 
     #[test]
     fn test_global_shutdown_flag() {
+        // Reset the global flag first
+        SHUTDOWN_REQUESTED.store(false, Ordering::Relaxed);
         assert!(!is_shutdown_requested());
         set_shutdown_requested();
         assert!(is_shutdown_requested());
     }
 }
-

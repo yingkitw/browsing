@@ -1,10 +1,10 @@
 //! Watsonx LLM integration
 
 use crate::error::{BrowserUseError, Result};
-use crate::llm::base::{ChatModel, ChatMessage, ChatInvokeCompletion};
+use crate::llm::base::{ChatInvokeCompletion, ChatMessage, ChatModel};
 use async_trait::async_trait;
-use serde_json::json;
 use futures::StreamExt;
+use serde_json::json;
 
 /// Watsonx chat model implementation
 pub struct WatsonxChat {
@@ -15,6 +15,7 @@ pub struct WatsonxChat {
 }
 
 impl WatsonxChat {
+    /// Creates a new Watsonx chat model
     pub fn new(api_key: String, model: Option<String>) -> Self {
         Self {
             api_key,
@@ -24,6 +25,7 @@ impl WatsonxChat {
         }
     }
 
+    /// Sets the base URL for the Watsonx API
     pub fn with_base_url(mut self, base_url: String) -> Self {
         self.base_url = base_url;
         self
@@ -40,7 +42,7 @@ impl WatsonxChat {
                 })
             })
             .collect();
-        
+
         json!({
             "messages": watsonx_messages,
             "model_id": self.model,
@@ -57,14 +59,14 @@ impl WatsonxChat {
         mut stream: Box<dyn futures::Stream<Item = Result<String>> + Send + Unpin>,
     ) -> Result<String> {
         let mut result = String::new();
-        
+
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
                 Ok(chunk) => result.push_str(&chunk),
                 Err(e) => return Err(e),
             }
         }
-        
+
         Ok(result)
     }
 }
@@ -83,7 +85,7 @@ impl ChatModel for WatsonxChat {
         // Use streaming method and collect results
         let stream = self.chat_stream(messages).await?;
         let completion_text = self.collect_stream(stream).await?;
-        
+
         Ok(ChatInvokeCompletion::new(completion_text))
     }
 
@@ -102,14 +104,14 @@ impl ChatModel for WatsonxChat {
         //     &payload,
         // ).await?;
         // return Ok(stream);
-        
+
         // Current implementation: HTTP streaming as fallback
         // This will be replaced with watsonx-rs::generate_stream when the crate API is finalized
         let payload = self.messages_to_watsonx(messages);
-        
+
         // Build request URL - adjust based on actual Watsonx API endpoint
         let url = format!("{}/ml/v1/text/generation_stream", self.base_url);
-        
+
         // Make streaming request
         let response = self
             .client
@@ -120,44 +122,41 @@ impl ChatModel for WatsonxChat {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| BrowserUseError::Llm(format!("HTTP error: {}", e)))?;
-        
+            .map_err(|e| BrowserUseError::Llm(format!("HTTP error: {e}")))?;
+
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
             return Err(BrowserUseError::Llm(format!(
-                "Watsonx API error: {} - {}",
-                status, error_text
+                "Watsonx API error: {status} - {error_text}"
             )));
         }
-        
+
         // Convert response stream to string chunks
         // Parse SSE (Server-Sent Events) format
-        let stream = response
-            .bytes_stream()
-            .map(|result| {
-                result
-                    .map_err(|e| BrowserUseError::Llm(format!("Stream error: {}", e)))
-                    .and_then(|bytes| {
-                        // Parse SSE format: "data: <content>\n\n"
-                        let text = String::from_utf8(bytes.to_vec())
-                            .map_err(|e| BrowserUseError::Llm(format!("UTF-8 error: {}", e)))?;
-                        
-                        // Extract data from SSE format
-                        let mut content = String::new();
-                        for line in text.lines() {
-                            if line.starts_with("data: ") {
-                                let data = &line[6..]; // Skip "data: "
-                                if data != "[DONE]" {
-                                    content.push_str(data);
-                                }
+        let stream = response.bytes_stream().map(|result| {
+            result
+                .map_err(|e| BrowserUseError::Llm(format!("Stream error: {e}")))
+                .and_then(|bytes| {
+                    // Parse SSE format: "data: <content>\n\n"
+                    let text = String::from_utf8(bytes.to_vec())
+                        .map_err(|e| BrowserUseError::Llm(format!("UTF-8 error: {e}")))?;
+
+                    // Extract data from SSE format
+                    let mut content = String::new();
+                    for line in text.lines() {
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            // Skip "data: "
+                            if data != "[DONE]" {
+                                content.push_str(data);
                             }
                         }
-                        
-                        Ok(content)
-                    })
-            });
-        
+                    }
+
+                    Ok(content)
+                })
+        });
+
         Ok(Box::new(stream))
     }
 }

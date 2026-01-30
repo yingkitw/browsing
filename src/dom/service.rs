@@ -1,36 +1,45 @@
 //! DOM service for page analysis
 
-use crate::error::{BrowserUseError, Result};
 use crate::browser::{Browser, cdp::CdpClient};
-use crate::dom::views::{
-    EnhancedAXNode, EnhancedAXProperty, EnhancedDOMTreeNode, EnhancedSnapshotNode, NodeType,
-    SerializedDOMState, DOMRect,
-};
 use crate::dom::enhanced_snapshot::build_snapshot_lookup;
 use crate::dom::serializer::DOMTreeSerializer;
-use regex::Regex;
-use std::sync::Arc;
-use std::collections::HashMap;
-use serde_json::Value;
+use crate::dom::views::{
+    DOMRect, EnhancedAXNode, EnhancedAXProperty, EnhancedDOMTreeNode, EnhancedSnapshotNode,
+    NodeType, SerializedDOMState,
+};
+use crate::error::{BrowserUseError, Result};
 use futures::future::try_join4;
+use regex::Regex;
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// DOM service for extracting and analyzing page content
 pub struct DomService {
+    /// Browser instance
     browser: Option<Arc<Browser>>,
+    /// CDP client instance
     cdp_client: Option<Arc<CdpClient>>,
+    /// Session ID
     session_id: Option<String>,
+    /// Current target ID
     current_target_id: Option<String>,
+    /// Whether to handle cross-origin iframes
     #[allow(dead_code)]
     cross_origin_iframes: bool,
+    /// Whether to use paint order filtering
     #[allow(dead_code)]
     paint_order_filtering: bool,
+    /// Maximum number of iframes to handle
     #[allow(dead_code)]
     max_iframes: usize,
+    /// Maximum iframe depth to handle
     #[allow(dead_code)]
     max_iframe_depth: usize,
 }
 
 impl DomService {
+    /// Creates a new DOM service
     pub fn new() -> Self {
         Self {
             browser: None,
@@ -44,6 +53,7 @@ impl DomService {
         }
     }
 
+    /// Sets the browser instance
     pub fn with_browser(mut self, browser: Arc<Browser>) -> Self {
         self.browser = Some(browser);
         // Extract CDP client, session ID, and target ID from browser
@@ -59,12 +69,14 @@ impl DomService {
         self
     }
 
+    /// Sets the CDP client and session ID
     pub fn with_cdp_client(mut self, client: Arc<CdpClient>, session_id: String) -> Self {
         self.cdp_client = Some(client);
         self.session_id = Some(session_id);
         self
     }
 
+    /// Sets the target ID
     pub fn with_target_id(mut self, target_id: String) -> Self {
         self.current_target_id = Some(target_id);
         self
@@ -82,14 +94,14 @@ impl DomService {
         // Basic HTML to markdown conversion
         // This is a simplified version - full implementation would use a proper HTML parser
         let cleaned_html = self.remove_script_style_tags(html);
-        
+
         // Use pulldown-cmark to parse markdown (if input is already markdown)
         // For HTML, we'll do basic text extraction for now
         let text = self.extract_text(&cleaned_html);
-        
+
         // Basic markdown formatting
         let mut markdown = String::new();
-        
+
         // Split by paragraphs and format
         for line in text.lines() {
             let trimmed = line.trim();
@@ -98,7 +110,7 @@ impl DomService {
                 markdown.push_str("\n\n");
             }
         }
-        
+
         Ok(markdown.trim().to_string())
     }
 
@@ -106,7 +118,7 @@ impl DomService {
     fn remove_script_style_tags(&self, html: &str) -> String {
         let script_re = Regex::new(r"(?s)<script[^>]*>.*?</script>").unwrap();
         let style_re = Regex::new(r"(?s)<style[^>]*>.*?</style>").unwrap();
-        
+
         let cleaned = script_re.replace_all(html, "");
         let cleaned = style_re.replace_all(&cleaned, "");
         cleaned.to_string()
@@ -114,14 +126,24 @@ impl DomService {
 
     /// Get all trees (snapshot, DOM tree, AX tree, device pixel ratio) for a target
     async fn _get_all_trees(&self, target_id: &str) -> Result<(Value, Value, Value, f64)> {
-        let client = self.cdp_client.as_ref()
+        let client = self
+            .cdp_client
+            .as_ref()
             .ok_or_else(|| BrowserUseError::Dom("No CDP client available".to_string()))?;
         let session_id = self.session_id.as_deref();
 
         // Required computed styles for snapshot
         let required_computed_styles = vec![
-            "display", "visibility", "opacity", "overflow", "overflow-x", "overflow-y",
-            "position", "z-index", "transform", "transform-origin"
+            "display",
+            "visibility",
+            "opacity",
+            "overflow",
+            "overflow-x",
+            "overflow-y",
+            "position",
+            "z-index",
+            "transform",
+            "transform-origin",
         ];
 
         // Create snapshot request
@@ -151,11 +173,8 @@ impl DomService {
             snapshot_params,
             session_id,
         );
-        let dom_tree_fut = client.send_command_with_session(
-            "DOM.getDocument",
-            dom_tree_params,
-            session_id,
-        );
+        let dom_tree_fut =
+            client.send_command_with_session("DOM.getDocument", dom_tree_params, session_id);
         let ax_tree_fut = client.send_command_with_session(
             "Accessibility.getFullAXTree",
             ax_tree_params,
@@ -166,19 +185,26 @@ impl DomService {
         // Wait for all with timeout
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(10),
-            try_join4(snapshot_fut, dom_tree_fut, ax_tree_fut, viewport_fut)
+            try_join4(snapshot_fut, dom_tree_fut, ax_tree_fut, viewport_fut),
         )
         .await
         .map_err(|_| BrowserUseError::Dom("Timeout waiting for CDP responses".to_string()))??;
-        
+
         let (snapshot_result, dom_tree_result, ax_tree_result, device_pixel_ratio) = result;
 
-        Ok((snapshot_result, dom_tree_result, ax_tree_result, device_pixel_ratio))
+        Ok((
+            snapshot_result,
+            dom_tree_result,
+            ax_tree_result,
+            device_pixel_ratio,
+        ))
     }
 
     /// Get viewport ratio (device pixel ratio)
     async fn _get_viewport_ratio(&self, _target_id: &str) -> Result<f64> {
-        let client = self.cdp_client.as_ref()
+        let client = self
+            .cdp_client
+            .as_ref()
             .ok_or_else(|| BrowserUseError::Dom("No CDP client available".to_string()))?;
         let session_id = self.session_id.as_deref();
 
@@ -190,13 +216,15 @@ impl DomService {
         // Extract device pixel ratio
         if let Some(visual_viewport) = metrics.get("visualViewport") {
             if let Some(css_visual_viewport) = metrics.get("cssVisualViewport") {
-                let device_width = visual_viewport.get("clientWidth")
+                let device_width = visual_viewport
+                    .get("clientWidth")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(1920.0);
-                let css_width = css_visual_viewport.get("clientWidth")
+                let css_width = css_visual_viewport
+                    .get("clientWidth")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(1920.0);
-                
+
                 if css_width > 0.0 {
                     return Ok(device_width / css_width);
                 }
@@ -211,25 +239,25 @@ impl DomService {
     fn build_enhanced_ax_node(&self, ax_node: &Value) -> Option<EnhancedAXNode> {
         let ax_node_id = ax_node.get("nodeId")?.as_str()?.to_string();
         let ignored = ax_node.get("ignored")?.as_bool().unwrap_or(false);
-        
+
         let role = ax_node
             .get("role")
             .and_then(|v| v.get("value"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        
+
         let name = ax_node
             .get("name")
             .and_then(|v| v.get("value"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        
+
         let description = ax_node
             .get("description")
             .and_then(|v| v.get("value"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        
+
         let properties = ax_node
             .get("properties")
             .and_then(|v| v.as_array())
@@ -243,7 +271,7 @@ impl DomService {
                     })
                     .collect()
             });
-        
+
         let child_ids = ax_node
             .get("childIds")
             .and_then(|v| v.as_array())
@@ -252,10 +280,12 @@ impl DomService {
                     .filter_map(|id| id.as_str().map(|s| s.to_string()))
                     .collect()
             });
-        
-        let properties_opt: Option<Vec<EnhancedAXProperty>> = properties.and_then(|p: Vec<EnhancedAXProperty>| if p.is_empty() { None } else { Some(p) });
-        let child_ids_opt: Option<Vec<String>> = child_ids.and_then(|c: Vec<String>| if c.is_empty() { None } else { Some(c) });
-        
+
+        let properties_opt: Option<Vec<EnhancedAXProperty>> = properties
+            .and_then(|p: Vec<EnhancedAXProperty>| if p.is_empty() { None } else { Some(p) });
+        let child_ids_opt: Option<Vec<String>> =
+            child_ids.and_then(|c: Vec<String>| if c.is_empty() { None } else { Some(c) });
+
         Some(EnhancedAXNode {
             ax_node_id,
             ignored,
@@ -277,23 +307,24 @@ impl DomService {
         } else if let Some(ref browser) = self.browser {
             browser.get_current_target_id()?
         } else {
-            return Err(BrowserUseError::Dom("Target ID required for DOM tree extraction".to_string()));
+            return Err(BrowserUseError::Dom(
+                "Target ID required for DOM tree extraction".to_string(),
+            ));
         };
-        
+
         self.get_dom_tree_by_target(&target).await
     }
 
     /// Get DOM tree for a specific target ID
     async fn get_dom_tree_by_target(&self, target_id: &str) -> Result<EnhancedDOMTreeNode> {
-        let (snapshot, dom_tree, ax_tree, device_pixel_ratio) = self._get_all_trees(target_id).await?;
+        let (snapshot, dom_tree, ax_tree, device_pixel_ratio) =
+            self._get_all_trees(target_id).await?;
 
         // Build AX tree lookup
         let mut ax_tree_lookup: HashMap<u64, Value> = HashMap::new();
         if let Some(nodes) = ax_tree.get("nodes").and_then(|v| v.as_array()) {
             for node in nodes {
-                if let Some(backend_node_id) = node
-                    .get("backendDOMNodeId")
-                    .and_then(|v| v.as_u64())
+                if let Some(backend_node_id) = node.get("backendDOMNodeId").and_then(|v| v.as_u64())
                 {
                     ax_tree_lookup.insert(backend_node_id, node.clone());
                 }
@@ -369,10 +400,7 @@ impl DomService {
         }
 
         // Get node type
-        let node_type_val = node
-            .get("nodeType")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(1);
+        let node_type_val = node.get("nodeType").and_then(|v| v.as_u64()).unwrap_or(1);
         let node_type = match node_type_val {
             1 => NodeType::ElementNode,
             2 => NodeType::AttributeNode,
@@ -404,16 +432,19 @@ impl DomService {
         let snapshot_data = snapshot_lookup.get(&backend_node_id).cloned();
 
         // Calculate absolute position
-        let absolute_position = if let (Some(snapshot), Some(offset)) = (snapshot_data.as_ref(), total_frame_offset) {
-            snapshot.bounds.map(|bounds| DOMRect::new(
-                bounds.x + offset.x,
-                bounds.y + offset.y,
-                bounds.width,
-                bounds.height,
-            ))
-        } else {
-            snapshot_data.as_ref().and_then(|s| s.bounds)
-        };
+        let absolute_position =
+            if let (Some(snapshot), Some(offset)) = (snapshot_data.as_ref(), total_frame_offset) {
+                snapshot.bounds.map(|bounds| {
+                    DOMRect::new(
+                        bounds.x + offset.x,
+                        bounds.y + offset.y,
+                        bounds.width,
+                        bounds.height,
+                    )
+                })
+            } else {
+                snapshot_data.as_ref().and_then(|s| s.bounds)
+            };
 
         // Create enhanced node
         let mut enhanced_node = EnhancedDOMTreeNode::new(
@@ -429,9 +460,15 @@ impl DomService {
         enhanced_node.ax_node = ax_node;
         enhanced_node.snapshot_node = snapshot_data;
         enhanced_node.absolute_position = absolute_position;
-        enhanced_node.frame_id = node.get("frameId").and_then(|v| v.as_str()).map(|s| s.to_string());
+        enhanced_node.frame_id = node
+            .get("frameId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         enhanced_node.is_scrollable = node.get("isScrollable").and_then(|v| v.as_bool());
-        enhanced_node.shadow_root_type = node.get("shadowRootType").and_then(|v| v.as_str()).map(|s| s.to_string());
+        enhanced_node.shadow_root_type = node
+            .get("shadowRootType")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         enhanced_node.session_id = self.session_id.clone();
 
         // Store in lookup before processing children (to handle circular references)
@@ -497,7 +534,11 @@ impl DomService {
     pub async fn get_serialized_dom_tree(
         &self,
         target_id: Option<&str>,
-    ) -> Result<(SerializedDOMState, EnhancedDOMTreeNode, HashMap<String, f64>)> {
+    ) -> Result<(
+        SerializedDOMState,
+        EnhancedDOMTreeNode,
+        HashMap<String, f64>,
+    )> {
         // Get enhanced DOM tree
         let enhanced_dom_tree = self.get_dom_tree(target_id).await?;
 
@@ -523,7 +564,9 @@ impl DomService {
     }
 
     /// Get selector map (index -> element mapping)
-    pub async fn get_selector_map(&self) -> Result<std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>> {
+    pub async fn get_selector_map(
+        &self,
+    ) -> Result<std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>> {
         let (serialized_state, _, _) = self.get_serialized_dom_tree(None).await?;
         Ok(serialized_state.selector_map)
     }
@@ -533,7 +576,7 @@ impl DomService {
         // Basic text extraction - remove HTML tags
         let tag_re = Regex::new(r"<[^>]+>").unwrap();
         let text = tag_re.replace_all(html, " ");
-        
+
         // Clean up whitespace
         let whitespace_re = Regex::new(r"\s+").unwrap();
         let cleaned = whitespace_re.replace_all(&text, " ");

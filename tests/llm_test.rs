@@ -1,6 +1,6 @@
 //! Tests for LLM integration
 
-use browser_use::llm::base::{ChatMessage, ChatInvokeCompletion, ChatInvokeUsage};
+use browser_use::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage};
 
 #[test]
 fn test_chat_message_creation() {
@@ -48,10 +48,9 @@ fn test_chat_invoke_completion_with_usage() {
         completion_tokens: 50,
         total_tokens: 150,
     };
-    
-    let completion = ChatInvokeCompletion::new("Response".to_string())
-        .with_usage(usage);
-    
+
+    let completion = ChatInvokeCompletion::new("Response".to_string()).with_usage(usage);
+
     assert!(completion.usage.is_some());
     assert_eq!(completion.usage.as_ref().unwrap().total_tokens, 150);
 }
@@ -66,10 +65,9 @@ fn test_chat_invoke_usage() {
         completion_tokens: 100,
         total_tokens: 300,
     };
-    
+
     assert_eq!(usage.prompt_tokens, 200);
     assert_eq!(usage.completion_tokens, 100);
     assert_eq!(usage.total_tokens, 300);
     assert_eq!(usage.prompt_cached_tokens, Some(50));
 }
-

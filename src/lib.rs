@@ -18,14 +18,13 @@ pub mod views;
 pub use error::{BrowserUseError, Result};
 
 // Re-export main types
-pub use actor::{Page, Element, Mouse};
+pub use actor::{Element, Mouse, Page};
 pub use agent::Agent;
 pub use browser::Browser;
 pub use config::Config;
-pub use llm::{WatsonxChat, ChatModel, ChatMessage};
+pub use llm::{ChatMessage, ChatModel, WatsonxChat};
 
 /// Initialize the library (sets up logging, etc.)
 pub fn init() {
     logging::setup_logging();
 }
-

@@ -1,8 +1,8 @@
 //! Page operations for browser automation
 
-use crate::error::{BrowserUseError, Result};
-use crate::browser::cdp::CdpClient;
 use crate::actor::{Element, Mouse, get_key_info};
+use crate::browser::cdp::CdpClient;
+use crate::error::{BrowserUseError, Result};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -14,6 +14,7 @@ pub struct Page {
 }
 
 impl Page {
+    /// Creates a new Page instance with the given CDP client and session ID
     pub fn new(client: Arc<CdpClient>, session_id: String) -> Self {
         Self {
             client,
@@ -35,9 +36,7 @@ impl Page {
 
     /// Reload the page
     pub async fn reload(&self) -> Result<()> {
-        self.client
-            .send_command("Page.reload", json!({}))
-            .await?;
+        self.client.send_command("Page.reload", json!({})).await?;
         Ok(())
     }
 
@@ -46,9 +45,7 @@ impl Page {
         let params = json!({
             "url": url
         });
-        self.client
-            .send_command("Page.navigate", params)
-            .await?;
+        self.client.send_command("Page.navigate", params).await?;
         Ok(())
     }
 
@@ -149,21 +146,15 @@ impl Page {
             "returnByValue": true,
             "awaitPromise": true
         });
-        let result = self
-            .client
-            .send_command("Runtime.evaluate", params)
-            .await?;
+        let result = self.client.send_command("Runtime.evaluate", params).await?;
 
         if let Some(exception) = result.get("exceptionDetails") {
             return Err(BrowserUseError::Dom(format!(
-                "JavaScript evaluation failed: {}",
-                exception
+                "JavaScript evaluation failed: {exception}"
             )));
         }
 
-        let value = result
-            .get("result")
-            .and_then(|v| v.get("value"));
+        let value = result.get("result").and_then(|v| v.get("value"));
 
         match value {
             Some(serde_json::Value::String(s)) => Ok(s.clone()),
@@ -174,7 +165,8 @@ impl Page {
 
     /// Take a screenshot
     pub async fn screenshot(&self, format: Option<&str>, quality: Option<u32>) -> Result<String> {
-        self.screenshot_with_options(format, quality, false, None).await
+        self.screenshot_with_options(format, quality, false, None)
+            .await
     }
 
     /// Take a screenshot with additional options
@@ -222,7 +214,6 @@ impl Page {
 
     /// Press a key on the page (supports key combinations like "Control+A")
     pub async fn press(&self, key: &str) -> Result<()> {
-
         // Handle key combinations like "Control+A"
         if key.contains('+') {
             let parts: Vec<&str> = key.split('+').collect();
@@ -231,15 +222,11 @@ impl Page {
 
             // Calculate modifier bitmask
             let mut modifier_value = 0u32;
-            let modifier_map: std::collections::HashMap<&str, u32> = [
-                ("Alt", 1),
-                ("Control", 2),
-                ("Meta", 4),
-                ("Shift", 8),
-            ]
-            .iter()
-            .cloned()
-            .collect();
+            let modifier_map: std::collections::HashMap<&str, u32> =
+                [("Alt", 1), ("Control", 2), ("Meta", 4), ("Shift", 8)]
+                    .iter()
+                    .cloned()
+                    .collect();
 
             for mod_str in modifiers {
                 if let Some(&val) = modifier_map.get(mod_str) {
@@ -351,4 +338,3 @@ impl Page {
         Ok(())
     }
 }
-

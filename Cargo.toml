@@ -47,9 +47,9 @@ base64 = "0.22"
 # Testing
 insta = "1.40"
 pulldown-cmark = "0.10"
+tempfile = "3.8"
 
-# Watsonx SDK
-watsonx-rs = "0.1"
+# Note: watsonx-rs is not used - we implement our own client
 
 # MCP
 rmcp = "0.1"

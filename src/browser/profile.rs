@@ -3,22 +3,15 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Browser profile configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BrowserProfile {
+    /// Whether to run browser in headless mode
     pub headless: Option<bool>,
+    /// Path to user data directory
     pub user_data_dir: Option<PathBuf>,
+    /// List of allowed domains
     pub allowed_domains: Option<Vec<String>>,
+    /// Path to downloads directory
     pub downloads_path: Option<PathBuf>,
 }
-
-impl Default for BrowserProfile {
-    fn default() -> Self {
-        Self {
-            headless: None,
-            user_data_dir: None,
-            allowed_domains: None,
-            downloads_path: None,
-        }
-    }
-}
-

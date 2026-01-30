@@ -25,14 +25,14 @@ mod tests {
             "query": "test query",
             "engine": "duckduckgo"
         });
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: "search".to_string(),
             params,
         };
-        
+
         assert_eq!(action.action_type, "search");
         assert!(action.params.get("query").is_some());
     }
@@ -42,14 +42,14 @@ mod tests {
         let params_json = json!({
             "url": "https://example.com"
         });
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: "navigate".to_string(),
             params,
         };
-        
+
         assert_eq!(action.action_type, "navigate");
         assert_eq!(
             action.params.get("url").and_then(|v| v.as_str()),
@@ -62,19 +62,16 @@ mod tests {
         let params_json = json!({
             "index": 1
         });
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: "click".to_string(),
             params,
         };
-        
+
         assert_eq!(action.action_type, "click");
-        assert_eq!(
-            action.params.get("index").and_then(|v| v.as_u64()),
-            Some(1)
-        );
+        assert_eq!(action.params.get("index").and_then(|v| v.as_u64()), Some(1));
     }
 
     #[test]
@@ -83,14 +80,14 @@ mod tests {
             "index": 2,
             "text": "test input"
         });
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: "input".to_string(),
             params,
         };
-        
+
         assert_eq!(action.action_type, "input");
         assert_eq!(
             action.params.get("text").and_then(|v| v.as_str()),
@@ -105,15 +102,15 @@ mod tests {
             "extract_links": true,
             "start_from_char": 0
         });
-        
-        let params: std::collections::HashMap<String, serde_json::Value> = 
+
+        let params: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_value(params_json).unwrap();
-        
+
         let action = ActionModel {
             action_type: "extract".to_string(),
             params,
         };
-        
+
         assert_eq!(action.action_type, "extract");
         assert_eq!(
             action.params.get("query").and_then(|v| v.as_str()),
@@ -125,4 +122,3 @@ mod tests {
         );
     }
 }
-

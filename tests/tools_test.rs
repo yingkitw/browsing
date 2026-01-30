@@ -8,7 +8,7 @@ use std::collections::HashMap;
 #[test]
 fn test_tools_registry_actions() {
     let tools = Tools::new(vec![]);
-    
+
     // Check that default actions are registered
     assert!(tools.registry.registry.actions.contains_key("search"));
     assert!(tools.registry.registry.actions.contains_key("navigate"));
@@ -19,7 +19,7 @@ fn test_tools_registry_actions() {
 #[test]
 fn test_tools_exclude_actions() {
     let tools = Tools::new(vec!["search".to_string(), "click".to_string()]);
-    
+
     // Actions should still be registered (exclusion is handled at execution time)
     assert!(tools.registry.registry.actions.contains_key("navigate"));
 }
@@ -32,7 +32,7 @@ fn test_registered_action_structure() {
         domains: None,
         handler: None,
     };
-    
+
     assert_eq!(action.name, "test_action");
     assert_eq!(action.description, "Test action");
     assert!(action.domains.is_none());
@@ -42,12 +42,12 @@ fn test_registered_action_structure() {
 fn test_action_model_get_index() {
     let mut params = HashMap::new();
     params.insert("index".to_string(), json!(5));
-    
+
     let action = ActionModel {
         action_type: "click".to_string(),
         params,
     };
-    
+
     // get_index looks in nested objects, so this might not work directly
     // But we can test the structure
     assert_eq!(action.action_type, "click");
@@ -58,14 +58,13 @@ fn test_action_model_get_index() {
 fn test_action_model_set_index() {
     let mut params = HashMap::new();
     params.insert("index".to_string(), json!(1));
-    
+
     let mut action = ActionModel {
         action_type: "click".to_string(),
         params,
     };
-    
+
     // set_index modifies nested objects, but we can test the structure
     action.set_index(10);
     assert_eq!(action.action_type, "click");
 }
-

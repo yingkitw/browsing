@@ -61,13 +61,12 @@ pub fn get_key_info(key: &str) -> (String, Option<u32>) {
         let ch = key.chars().next().unwrap();
         if ch.is_alphabetic() {
             let upper = ch.to_uppercase().next().unwrap();
-            return (format!("Key{}", upper), Some(upper as u32));
+            return (format!("Key{upper}"), Some(upper as u32));
         } else if ch.is_ascii_digit() {
-            return (format!("Digit{}", ch), Some(ch as u32));
+            return (format!("Digit{ch}"), Some(ch as u32));
         }
     }
 
     // Fallback: use the key name as code, no virtual key code
     (key.to_string(), None)
 }
-

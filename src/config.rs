@@ -4,50 +4,75 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
+/// Configuration for browser profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserProfileConfig {
+    /// Whether to run browser in headless mode
     pub headless: Option<bool>,
+    /// Path to user data directory
     pub user_data_dir: Option<PathBuf>,
+    /// List of allowed domains
     pub allowed_domains: Option<Vec<String>>,
+    /// Path to downloads directory
     pub downloads_path: Option<PathBuf>,
+    /// Proxy configuration
     pub proxy: Option<ProxyConfig>,
 }
 
+/// Proxy configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
+    /// Proxy server URL
     pub server: String,
+    /// Bypass list for proxy
     pub bypass: Option<String>,
+    /// Username for proxy authentication
     pub username: Option<String>,
+    /// Password for proxy authentication
     pub password: Option<String>,
 }
 
+/// Configuration for LLM
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmConfig {
+    /// API key for the LLM service
     pub api_key: Option<String>,
+    /// Model name to use
     pub model: Option<String>,
+    /// Temperature for generation
     pub temperature: Option<f64>,
+    /// Maximum number of tokens to generate
     pub max_tokens: Option<u32>,
 }
 
+/// Configuration for the agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
+    /// Maximum number of steps
     pub max_steps: Option<u32>,
+    /// Whether to use vision
     pub use_vision: Option<bool>,
+    /// System prompt override
     pub system_prompt: Option<String>,
 }
 
+/// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Browser profile configuration
     pub browser_profile: BrowserProfileConfig,
+    /// LLM configuration
     pub llm: LlmConfig,
+    /// Agent configuration
     pub agent: AgentConfig,
 }
 
 impl Config {
+    /// Creates a Config from environment variables
     pub fn from_env() -> Self {
         // Load .env file if present
         let _ = dotenv::dotenv();
-        
+
         Self {
             browser_profile: BrowserProfileConfig {
                 headless: std::env::var("BROWSER_USE_HEADLESS")
@@ -91,7 +116,10 @@ impl Config {
         }
     }
 
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::result::Result<Self, Box<dyn std::error::Error>> {
+    /// Loads configuration from a file
+    pub fn load_from_file<P: AsRef<Path>>(
+        path: P,
+    ) -> std::result::Result<Self, Box<dyn std::error::Error>> {
         if !path.as_ref().exists() {
             warn!("Config file not found, using defaults");
             return Ok(Self::from_env());
@@ -102,4 +130,3 @@ impl Config {
         Ok(config)
     }
 }
-

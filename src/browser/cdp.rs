@@ -1,12 +1,12 @@
 //! Chrome DevTools Protocol (CDP) client implementation
 
 use crate::error::{BrowserUseError, Result};
+use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use futures_util::{SinkExt, StreamExt};
 
 /// CDP client for WebSocket communication with Chrome
 pub struct CdpClient {
@@ -18,6 +18,7 @@ pub struct CdpClient {
 }
 
 impl CdpClient {
+    /// Create a new CDP client with the given WebSocket URL
     pub fn new(url: String) -> Self {
         Self {
             url,
@@ -28,10 +29,11 @@ impl CdpClient {
         }
     }
 
+    /// Start the WebSocket connection to the browser
     pub async fn start(&mut self) -> Result<()> {
         let (ws_stream, _) = connect_async(&self.url)
             .await
-            .map_err(|e| BrowserUseError::Cdp(format!("Failed to connect to CDP: {}", e)))?;
+            .map_err(|e| BrowserUseError::Cdp(format!("Failed to connect to CDP: {e}")))?;
 
         let (mut write, mut read) = ws_stream.split();
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -48,7 +50,7 @@ impl CdpClient {
                 tokio::select! {
                     Some(msg) = rx.recv() => {
                         if let Err(e) = write.send(msg).await {
-                            eprintln!("Error sending message: {}", e);
+                            tracing::error!("Error sending message to WebSocket: {}", e);
                             break;
                         }
                     }
@@ -65,7 +67,7 @@ impl CdpClient {
                             }
                             Ok(Message::Close(_)) => break,
                             Err(e) => {
-                                eprintln!("WebSocket error: {}", e);
+                                tracing::error!("WebSocket connection error: {}", e);
                                 break;
                             }
                             _ => {}
@@ -78,10 +80,12 @@ impl CdpClient {
         Ok(())
     }
 
+    /// Send a CDP command without a session
     pub async fn send_command(&self, method: &str, params: Value) -> Result<Value> {
         self.send_command_with_session(method, params, None).await
     }
 
+    /// Send a CDP command with an optional session
     pub async fn send_command_with_session(
         &self,
         method: &str,
@@ -110,13 +114,13 @@ impl CdpClient {
         if let Some(sender) = self.sender.lock().await.as_ref() {
             sender
                 .send(Message::Text(request.to_string()))
-                .map_err(|e| BrowserUseError::Cdp(format!("Failed to send command: {}", e)))?;
+                .map_err(|e| BrowserUseError::Cdp(format!("Failed to send command: {e}")))?;
         }
 
         // Wait for response
         if let Some(response) = rx.recv().await {
             if let Some(error) = response.get("error") {
-                return Err(BrowserUseError::Cdp(format!("CDP error: {}", error)));
+                return Err(BrowserUseError::Cdp(format!("CDP error: {error}")));
             }
             return Ok(response["result"].clone());
         }
@@ -124,6 +128,7 @@ impl CdpClient {
         Err(BrowserUseError::Cdp("No response received".to_string()))
     }
 
+    /// Stop the CDP client and close the WebSocket connection
     pub async fn stop(&mut self) -> Result<()> {
         // Close WebSocket connection
         if let Some(sender) = self.sender.lock().await.as_ref() {
@@ -135,14 +140,20 @@ impl CdpClient {
 
 /// CDP session for a specific target
 pub struct CdpSession {
+    /// The CDP client instance
     pub client: Arc<CdpClient>,
+    /// Target ID for this session
     pub target_id: String,
+    /// Session ID
     pub session_id: String,
+    /// Title of the target
     pub title: String,
+    /// URL of the target
     pub url: String,
 }
 
 impl CdpSession {
+    /// Creates a new CDP session for a specific target
     pub async fn for_target(
         client: Arc<CdpClient>,
         target_id: String,
@@ -154,9 +165,7 @@ impl CdpSession {
             "flatten": true
         });
 
-        let result = client
-            .send_command("Target.attachToTarget", params)
-            .await?;
+        let result = client.send_command("Target.attachToTarget", params).await?;
 
         let session_id = result["sessionId"]
             .as_str()
@@ -176,7 +185,7 @@ impl CdpSession {
         });
 
         for domain in &domains {
-            let method = format!("{}.enable", domain);
+            let method = format!("{domain}.enable");
             let _ = client.send_command(&method, serde_json::json!({})).await;
         }
 
@@ -204,4 +213,3 @@ impl CdpSession {
         })
     }
 }
-

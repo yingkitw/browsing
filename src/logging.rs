@@ -1,7 +1,7 @@
 //! Logging configuration for browser-use-rs
 
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 use tracing_subscriber::fmt;
+use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Initialize logging for browser-use-rs
 pub fn setup_logging() {
@@ -24,4 +24,3 @@ pub fn setup_logging() {
         .with(fmt::layer().with_target(false))
         .init();
 }
-

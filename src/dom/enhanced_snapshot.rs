@@ -51,7 +51,9 @@ pub fn build_snapshot_lookup(
     let documents = snapshot
         .get("documents")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| crate::error::BrowserUseError::Dom("No documents in snapshot".to_string()))?;
+        .ok_or_else(|| {
+            crate::error::BrowserUseError::Dom("No documents in snapshot".to_string())
+        })?;
 
     if documents.is_empty() {
         return Ok(snapshot_lookup);
@@ -68,9 +70,9 @@ pub fn build_snapshot_lookup(
         .unwrap_or_default();
 
     for document in documents {
-        let nodes = document
-            .get("nodes")
-            .ok_or_else(|| crate::error::BrowserUseError::Dom("No nodes in document".to_string()))?;
+        let nodes = document.get("nodes").ok_or_else(|| {
+            crate::error::BrowserUseError::Dom("No nodes in document".to_string())
+        })?;
         let layout = document.get("layout");
 
         // Build backend node id to snapshot index lookup
@@ -149,14 +151,17 @@ pub fn build_snapshot_lookup(
                     }
 
                     // Extract paint order
-                    if let Some(paint_orders) = layout.get("paintOrders").and_then(|v| v.as_array()) {
+                    if let Some(paint_orders) = layout.get("paintOrders").and_then(|v| v.as_array())
+                    {
                         if layout_idx < paint_orders.len() {
                             paint_order = paint_orders[layout_idx].as_i64().map(|v| v as i32);
                         }
                     }
 
                     // Extract client rects
-                    if let Some(client_rects_data) = layout.get("clientRects").and_then(|v| v.as_array()) {
+                    if let Some(client_rects_data) =
+                        layout.get("clientRects").and_then(|v| v.as_array())
+                    {
                         if layout_idx < client_rects_data.len() {
                             if let Some(rect_array) = client_rects_data[layout_idx].as_array() {
                                 if rect_array.len() >= 4 {
@@ -171,7 +176,9 @@ pub fn build_snapshot_lookup(
                     }
 
                     // Extract scroll rects
-                    if let Some(scroll_rects_data) = layout.get("scrollRects").and_then(|v| v.as_array()) {
+                    if let Some(scroll_rects_data) =
+                        layout.get("scrollRects").and_then(|v| v.as_array())
+                    {
                         if layout_idx < scroll_rects_data.len() {
                             if let Some(rect_array) = scroll_rects_data[layout_idx].as_array() {
                                 if rect_array.len() >= 4 {
@@ -187,9 +194,13 @@ pub fn build_snapshot_lookup(
 
                     // Extract stacking contexts
                     if let Some(stacking_contexts_obj) = layout.get("stackingContexts") {
-                        if let Some(index_array) = stacking_contexts_obj.get("index").and_then(|v| v.as_array()) {
+                        if let Some(index_array) = stacking_contexts_obj
+                            .get("index")
+                            .and_then(|v| v.as_array())
+                        {
                             if layout_idx < index_array.len() {
-                                stacking_contexts = index_array[layout_idx].as_i64().map(|v| v as i32);
+                                stacking_contexts =
+                                    index_array[layout_idx].as_i64().map(|v| v as i32);
                             }
                         }
                     }
@@ -220,4 +231,3 @@ pub fn build_snapshot_lookup(
 
     Ok(snapshot_lookup)
 }
-

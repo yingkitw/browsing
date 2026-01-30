@@ -1,8 +1,8 @@
 //! Element operations for browser automation
 
-use crate::error::{BrowserUseError, Result};
-use crate::browser::cdp::CdpClient;
 use crate::actor::mouse::MouseButton;
+use crate::browser::cdp::CdpClient;
+use crate::error::{BrowserUseError, Result};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -14,6 +14,7 @@ pub struct Element {
 }
 
 impl Element {
+    /// Creates a new Element instance with the given CDP client, session ID, and backend node ID
     pub fn new(client: Arc<CdpClient>, session_id: String, backend_node_id: u32) -> Self {
         Self {
             client,
@@ -181,10 +182,7 @@ impl Element {
         // Focus the element
         let node_id = self.get_node_id().await?;
         let focus_params = json!({ "nodeId": node_id });
-        let _ = self
-            .client
-            .send_command("DOM.focus", focus_params)
-            .await;
+        let _ = self.client.send_command("DOM.focus", focus_params).await;
 
         // Clear and set value using JavaScript
         let script = format!(
@@ -216,14 +214,12 @@ impl Element {
     /// Get element text content
     pub async fn text(&self) -> Result<String> {
         let _node_id = self.get_node_id().await?;
-        let script = format!(
-            r#"
-            (() => {{
+        let script = r#"
+            (() => {
                 const node = arguments[0];
                 return node.textContent || node.innerText || '';
-            }})
-            "#
-        );
+            })
+            "#.to_string();
 
         let eval_params = json!({
             "expression": script,
@@ -277,10 +273,10 @@ impl Element {
                             let max_x = x_coords.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
                             let min_y = y_coords.iter().fold(f64::INFINITY, |a, &b| a.min(b));
                             let max_y = y_coords.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-                            
+
                             let width = max_x - min_x;
                             let height = max_y - min_y;
-                            
+
                             return Ok(Some((min_x, min_y, width, height)));
                         }
                     }
@@ -294,10 +290,9 @@ impl Element {
     /// Take a screenshot of this element
     pub async fn screenshot(&self, format: Option<&str>, quality: Option<u32>) -> Result<String> {
         // Get element's bounding box
-        let (x, y, width, height) = self
-            .get_bounding_box()
-            .await?
-            .ok_or_else(|| BrowserUseError::Browser("Element is not visible or has no bounding box".to_string()))?;
+        let (x, y, width, height) = self.get_bounding_box().await?.ok_or_else(|| {
+            BrowserUseError::Browser("Element is not visible or has no bounding box".to_string())
+        })?;
 
         let format = format.unwrap_or("png");
         let mut params = json!({
@@ -330,4 +325,3 @@ impl Element {
         Ok(data.to_string())
     }
 }
-

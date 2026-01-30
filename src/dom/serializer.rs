@@ -1,21 +1,27 @@
 //! DOM serializer for LLM representation
 
 use crate::dom::views::{
-    EnhancedDOMTreeNode, NodeType, DOMInteractedElement, DEFAULT_INCLUDE_ATTRIBUTES,
+    DOMInteractedElement, EnhancedDOMTreeNode, NodeType, DEFAULT_INCLUDE_ATTRIBUTES,
 };
 use std::collections::HashMap;
 
 /// Simplified node for serialization
 #[derive(Debug, Clone)]
 pub struct SimplifiedNode {
+    /// Original enhanced DOM tree node
     pub original_node: EnhancedDOMTreeNode,
+    /// Child nodes
     pub children: Vec<SimplifiedNode>,
+    /// Whether this node should be displayed
     pub should_display: bool,
+    /// Whether this node is interactive
     pub is_interactive: bool,
+    /// Interactive index if applicable
     pub interactive_index: Option<u32>,
 }
 
 impl SimplifiedNode {
+    /// Creates a new simplified node from an enhanced DOM tree node
     pub fn new(node: EnhancedDOMTreeNode) -> Self {
         Self {
             original_node: node,
@@ -29,12 +35,16 @@ impl SimplifiedNode {
 
 /// DOM tree serializer
 pub struct DOMTreeSerializer {
+    /// Root node of the DOM tree
     root_node: EnhancedDOMTreeNode,
+    /// Counter for interactive elements
     interactive_counter: u32,
+    /// Map of selectors
     selector_map: HashMap<u32, DOMInteractedElement>,
 }
 
 impl DOMTreeSerializer {
+    /// Creates a new DOM tree serializer
     pub fn new(root_node: EnhancedDOMTreeNode) -> Self {
         Self {
             root_node,
@@ -44,9 +54,7 @@ impl DOMTreeSerializer {
     }
 
     /// Serialize accessible elements and build selector map
-    pub fn serialize_accessible_elements(
-        mut self,
-    ) -> (SerializedDOMState, HashMap<String, f64>) {
+    pub fn serialize_accessible_elements(mut self) -> (SerializedDOMState, HashMap<String, f64>) {
         // Reset state
         self.interactive_counter = 1;
         self.selector_map.clear();
@@ -60,7 +68,8 @@ impl DOMTreeSerializer {
         let simplified_tree = simplified_tree_mut;
 
         // Serialize to string
-        let serialized_string = Self::serialize_tree(&simplified_tree, DEFAULT_INCLUDE_ATTRIBUTES, 0);
+        let serialized_string =
+            Self::serialize_tree(&simplified_tree, DEFAULT_INCLUDE_ATTRIBUTES, 0);
 
         let serialized_state = SerializedDOMState {
             html: None,
@@ -132,7 +141,10 @@ impl DOMTreeSerializer {
 
         // Skip script and style tags
         let tag = node.tag_name();
-        if matches!(tag.as_str(), "script" | "style" | "head" | "meta" | "link" | "title") {
+        if matches!(
+            tag.as_str(),
+            "script" | "style" | "head" | "meta" | "link" | "title"
+        ) {
             return false;
         }
 
@@ -194,7 +206,12 @@ impl DOMTreeSerializer {
         ) || node
             .attributes
             .get("role")
-            .map(|r| matches!(r.as_str(), "button" | "link" | "menuitem" | "tab" | "option"))
+            .map(|r| {
+                matches!(
+                    r.as_str(),
+                    "button" | "link" | "menuitem" | "tab" | "option"
+                )
+            })
             .unwrap_or(false)
     }
 
@@ -222,10 +239,8 @@ impl DOMTreeSerializer {
         }
 
         // Extract text from children (simplified)
-        if node.node_type == NodeType::TextNode {
-            if !node.node_value.trim().is_empty() {
-                return Some(node.node_value.trim().to_string());
-            }
+        if node.node_type == NodeType::TextNode && !node.node_value.trim().is_empty() {
+            return Some(node.node_value.trim().to_string());
         }
 
         None
@@ -251,17 +266,15 @@ impl DOMTreeSerializer {
                 let mut parts = vec![tag.clone()];
 
                 // Add attributes
-                let attrs_str = Self::_build_attributes_string(
-                    &node.original_node,
-                    include_attributes,
-                );
+                let attrs_str =
+                    Self::_build_attributes_string(&node.original_node, include_attributes);
                 if !attrs_str.is_empty() {
                     parts.push(attrs_str);
                 }
 
                 // Add index if interactive
                 if let Some(index) = node.interactive_index {
-                    parts.push(format!("[{}]", index));
+                    parts.push(format!("[{index}]"));
                 }
 
                 formatted_text.push(format!("{}{}", depth_str, parts.join(" ")));
@@ -277,7 +290,7 @@ impl DOMTreeSerializer {
             NodeType::TextNode => {
                 let text = node.original_node.node_value.trim();
                 if !text.is_empty() && text.len() > 1 {
-                    formatted_text.push(format!("{}{}", depth_str, text));
+                    formatted_text.push(format!("{depth_str}{text}"));
                 }
             }
             _ => {
@@ -311,16 +324,13 @@ impl DOMTreeSerializer {
     }
 
     /// Build attributes string
-    fn _build_attributes_string(
-        node: &EnhancedDOMTreeNode,
-        include_attributes: &[&str],
-    ) -> String {
+    fn _build_attributes_string(node: &EnhancedDOMTreeNode, include_attributes: &[&str]) -> String {
         let mut attrs = Vec::new();
 
         for attr_name in include_attributes {
             if let Some(value) = node.attributes.get(*attr_name) {
                 if !value.is_empty() {
-                    attrs.push(format!("{}=\"{}\"", attr_name, value));
+                    attrs.push(format!("{attr_name}=\"{value}\""));
                 }
             }
         }
@@ -342,4 +352,3 @@ impl DOMTreeSerializer {
 
 /// Serialized DOM state (temporary - will be updated)
 use crate::dom::views::SerializedDOMState;
-

@@ -12,4 +12,3 @@ pub use enhanced_snapshot::build_snapshot_lookup;
 pub use serializer::DOMTreeSerializer;
 pub use service::DomService;
 pub use views::*;
-

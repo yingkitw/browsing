@@ -1,19 +1,23 @@
 //! Mouse operations for browser automation
 
-use crate::error::Result;
 use crate::browser::cdp::CdpClient;
+use crate::error::Result;
 use serde_json::json;
 use std::sync::Arc;
 
 /// Mouse button types
 #[derive(Debug, Clone, Copy)]
 pub enum MouseButton {
+    /// Left mouse button
     Left,
+    /// Right mouse button
     Right,
+    /// Middle mouse button
     Middle,
 }
 
 impl MouseButton {
+    /// Converts the MouseButton to its CDP string representation
     pub fn to_cdp_string(&self) -> &'static str {
         match self {
             MouseButton::Left => "left",
@@ -31,18 +35,13 @@ pub struct Mouse {
 }
 
 impl Mouse {
+    /// Creates a new Mouse instance with the given CDP client and session ID
     pub fn new(client: Arc<CdpClient>, session_id: String) -> Self {
         Self { client, session_id }
     }
 
     /// Click at the specified coordinates
-    pub async fn click(
-        &self,
-        x: f64,
-        y: f64,
-        button: MouseButton,
-        click_count: u32,
-    ) -> Result<()> {
+    pub async fn click(&self, x: f64, y: f64, button: MouseButton, click_count: u32) -> Result<()> {
         // Mouse press
         let press_params = json!({
             "type": "mousePressed",
@@ -164,7 +163,7 @@ impl Mouse {
             Ok(_) => Ok(()),
             Err(_) => {
                 // Fallback to JavaScript scroll
-                let scroll_js = format!("window.scrollBy({}, {})", delta_x, delta_y);
+                let scroll_js = format!("window.scrollBy({delta_x}, {delta_y})");
                 let eval_params = json!({
                     "expression": scroll_js,
                     "returnByValue": true,
@@ -177,4 +176,3 @@ impl Mouse {
         }
     }
 }
-

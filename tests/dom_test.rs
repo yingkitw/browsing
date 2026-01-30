@@ -13,7 +13,7 @@ fn test_enhanced_dom_node_creation() {
         "".to_string(),
         "target-1".to_string(),
     );
-    
+
     assert_eq!(node.node_id, 1);
     assert_eq!(node.backend_node_id, 1);
     assert_eq!(node.node_name, "div");
@@ -29,7 +29,7 @@ fn test_serialized_dom_state_llm_representation() {
         elements: vec![],
         selector_map: HashMap::new(),
     };
-    
+
     // Should prefer markdown
     let repr = state.llm_representation(None);
     assert_eq!(repr, Some("# Test".to_string()));
@@ -45,10 +45,10 @@ fn test_serialized_dom_state_fallbacks() {
         elements: vec![],
         selector_map: HashMap::new(),
     };
-    
+
     let repr = state.llm_representation(None);
     assert_eq!(repr, Some("test text".to_string()));
-    
+
     // Test HTML fallback
     let state = SerializedDOMState {
         html: Some("<div>test</div>".to_string()),
@@ -57,7 +57,7 @@ fn test_serialized_dom_state_fallbacks() {
         elements: vec![],
         selector_map: HashMap::new(),
     };
-    
+
     let repr = state.llm_representation(None);
     assert_eq!(repr, Some("<div>test</div>".to_string()));
 }
@@ -68,4 +68,3 @@ fn test_node_type_variants() {
     assert_eq!(NodeType::TextNode as u8, 3);
     assert_eq!(NodeType::DocumentNode as u8, 9);
 }
-

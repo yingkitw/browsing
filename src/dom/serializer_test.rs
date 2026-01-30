@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::views::{EnhancedDOMTreeNode, NodeType, SerializedDOMState};
     use super::super::serializer::DOMTreeSerializer;
+    use super::super::views::{EnhancedDOMTreeNode, NodeType, SerializedDOMState};
     use std::collections::HashMap;
 
     fn create_test_dom_node() -> EnhancedDOMTreeNode {
@@ -32,7 +32,7 @@ mod tests {
         let root = create_test_dom_node();
         let serializer = DOMTreeSerializer::new(root);
         let (state, _) = serializer.serialize_accessible_elements();
-        
+
         assert!(state.elements.is_empty() || !state.elements.is_empty());
         assert!(state.selector_map.is_empty() || !state.selector_map.is_empty());
     }
@@ -46,7 +46,7 @@ mod tests {
             elements: vec![],
             selector_map: HashMap::new(),
         };
-        
+
         assert_eq!(state.text, Some("test".to_string()));
         assert!(state.html.is_none());
     }
@@ -60,7 +60,7 @@ mod tests {
             elements: vec![],
             selector_map: HashMap::new(),
         };
-        
+
         // Should prefer markdown
         let repr = state.llm_representation(None);
         assert_eq!(repr, Some("# Test".to_string()));
@@ -75,7 +75,7 @@ mod tests {
             elements: vec![],
             selector_map: HashMap::new(),
         };
-        
+
         // Should fallback to text
         let repr = state.llm_representation(None);
         assert_eq!(repr, Some("test text".to_string()));
@@ -90,10 +90,9 @@ mod tests {
             elements: vec![],
             selector_map: HashMap::new(),
         };
-        
+
         // Should fallback to HTML
         let repr = state.llm_representation(None);
         assert_eq!(repr, Some("<div>test</div>".to_string()));
     }
 }
-

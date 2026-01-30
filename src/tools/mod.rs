@@ -9,4 +9,3 @@ mod service_test;
 
 pub use service::Tools;
 pub use views::{ActionModel, ActionRegistry, RegisteredAction};
-

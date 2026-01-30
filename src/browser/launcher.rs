@@ -1,11 +1,11 @@
 //! Browser launcher for local browser instances
 
-use crate::error::{BrowserUseError, Result};
 use crate::browser::profile::BrowserProfile;
+use crate::error::{BrowserUseError, Result};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 /// Browser launcher for managing local browser processes
 pub struct BrowserLauncher {
@@ -15,6 +15,7 @@ pub struct BrowserLauncher {
 }
 
 impl BrowserLauncher {
+    /// Creates a new BrowserLauncher with the given profile
     pub fn new(profile: BrowserProfile) -> Self {
         Self {
             profile,
@@ -23,6 +24,7 @@ impl BrowserLauncher {
         }
     }
 
+    /// Sets the executable path for the browser
     pub fn with_executable_path(mut self, path: PathBuf) -> Self {
         self.executable_path = Some(path);
         self
@@ -39,7 +41,7 @@ impl BrowserLauncher {
 
         // Try to find browser in common locations
         let candidates = Self::get_browser_candidates();
-        
+
         for candidate in candidates {
             if candidate.exists() {
                 return Ok(candidate);
@@ -54,16 +56,18 @@ impl BrowserLauncher {
     /// Get list of candidate browser paths based on platform
     fn get_browser_candidates() -> Vec<PathBuf> {
         let mut candidates = Vec::new();
-        
+
         #[cfg(target_os = "macos")]
         {
             candidates.extend(vec![
                 PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
                 PathBuf::from("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-                PathBuf::from("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
+                PathBuf::from(
+                    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+                ),
             ]);
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             candidates.extend(vec![
@@ -73,37 +77,48 @@ impl BrowserLauncher {
                 PathBuf::from("/usr/bin/chromium-browser"),
             ]);
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             use std::env;
             let local_app_data = env::var("LOCALAPPDATA").unwrap_or_default();
             let program_files = env::var("PROGRAMFILES").unwrap_or_default();
             let program_files_x86 = env::var("PROGRAMFILES(X86)").unwrap_or_default();
-            
+
             candidates.extend(vec![
-                PathBuf::from(format!("{}/Google/Chrome/Application/chrome.exe", program_files)),
-                PathBuf::from(format!("{}/Google/Chrome/Application/chrome.exe", program_files_x86)),
-                PathBuf::from(format!("{}/Google/Chrome/Application/chrome.exe", local_app_data)),
+                PathBuf::from(format!(
+                    "{}/Google/Chrome/Application/chrome.exe",
+                    program_files
+                )),
+                PathBuf::from(format!(
+                    "{}/Google/Chrome/Application/chrome.exe",
+                    program_files_x86
+                )),
+                PathBuf::from(format!(
+                    "{}/Google/Chrome/Application/chrome.exe",
+                    local_app_data
+                )),
                 PathBuf::from("C:\\Program Files\\Chromium\\Application\\chrome.exe"),
             ]);
         }
-        
+
         candidates
     }
 
     /// Find a free port for CDP debugging
     fn find_free_port() -> Result<u16> {
         use std::net::TcpListener;
-        
+
         // Try ports starting from 9222 (Chrome's default)
         for port in 9222..9300 {
-            if TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
+            if TcpListener::bind(format!("127.0.0.1:{port}")).is_ok() {
                 return Ok(port);
             }
         }
-        
-        Err(BrowserUseError::Browser("No free port found for CDP".to_string()))
+
+        Err(BrowserUseError::Browser(
+            "No free port found for CDP".to_string(),
+        ))
     }
 
     /// Build launch arguments from profile
@@ -126,7 +141,7 @@ impl BrowserLauncher {
         }
 
         // Remote debugging port
-        args.push(format!("--remote-debugging-port={}", debug_port));
+        args.push(format!("--remote-debugging-port={debug_port}"));
 
         // Additional common args for automation
         args.extend(vec![
@@ -143,29 +158,30 @@ impl BrowserLauncher {
     pub async fn launch(&mut self) -> Result<String> {
         // Find browser executable
         let browser_path = self.find_browser_executable().await?;
-        
+
         // Find free port
         let debug_port = Self::find_free_port()?;
-        
+
         // Build launch arguments
         let args = self.build_launch_args(debug_port);
-        
+
         // Launch browser
         let mut command = Command::new(&browser_path);
         command.args(&args);
         command.stdin(Stdio::null());
         command.stdout(Stdio::null());
         command.stderr(Stdio::null());
-        
-        let child = command.spawn()
-            .map_err(|e| BrowserUseError::Browser(format!("Failed to launch browser: {}", e)))?;
-        
+
+        let child = command
+            .spawn()
+            .map_err(|e| BrowserUseError::Browser(format!("Failed to launch browser: {e}")))?;
+
         self.process = Some(child);
-        
+
         // Wait for CDP to be ready
-        let cdp_url = format!("http://127.0.0.1:{}", debug_port);
+        let cdp_url = format!("http://127.0.0.1:{debug_port}");
         Self::wait_for_cdp_ready(&cdp_url).await?;
-        
+
         Ok(cdp_url)
     }
 
@@ -173,18 +189,18 @@ impl BrowserLauncher {
     async fn wait_for_cdp_ready(cdp_url: &str) -> Result<()> {
         let max_attempts = 30;
         let delay = Duration::from_millis(500);
-        
+
         for _ in 0..max_attempts {
             // Try to connect to CDP endpoint
-            if let Ok(response) = reqwest::get(format!("{}/json/version", cdp_url)).await {
+            if let Ok(response) = reqwest::get(format!("{cdp_url}/json/version")).await {
                 if response.status().is_success() {
                     return Ok(());
                 }
             }
-            
+
             sleep(delay).await;
         }
-        
+
         Err(BrowserUseError::Browser(
             "CDP endpoint did not become ready in time".to_string(),
         ))
@@ -207,4 +223,3 @@ impl Drop for BrowserLauncher {
         }
     }
 }
-
