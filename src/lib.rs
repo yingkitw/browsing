@@ -1,6 +1,6 @@
-//! Browser-Use: Make websites accessible for AI agents
+//! Browsing: Autonomous web browsing for AI agents
 //!
-//! This is a Rust implementation of the browser-use library for autonomous web automation.
+//! This library provides tools for AI agents to automate web browsing tasks.
 
 pub mod actor;
 pub mod agent;
@@ -16,14 +16,14 @@ pub mod traits;
 pub mod utils;
 pub mod views;
 
-pub use error::{BrowserUseError, Result};
+pub use error::{BrowsingError, Result};
 
 // Re-export main types
 pub use actor::{Element, Mouse, Page};
 pub use agent::Agent;
 pub use browser::Browser;
 pub use config::Config;
-pub use llm::{ChatMessage, ChatModel, WatsonxChat};
+pub use llm::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel};
 pub use traits::{BrowserClient, DOMProcessor};
 
 /// Initialize the library (sets up logging, etc.)

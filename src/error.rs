@@ -1,10 +1,10 @@
-//! Error types for browser-use-rs
+//! Error types for browsing
 
 use thiserror::Error;
 
-/// Error types for browser-use-rs
+/// Error types for browsing
 #[derive(Error, Debug)]
-pub enum BrowserUseError {
+pub enum BrowsingError {
     /// Configuration error
     #[error("Configuration error: {0}")]
     Config(String),
@@ -54,51 +54,51 @@ pub enum BrowserUseError {
     Validation(String),
 }
 
-/// Result type alias for browser-use-rs
-pub type Result<T> = std::result::Result<T, BrowserUseError>;
+/// Result type alias for browsing
+pub type Result<T> = std::result::Result<T, BrowsingError>;
 
 #[cfg(test)]
 mod tests {
-    use super::BrowserUseError;
+    use super::BrowsingError;
 
     #[test]
     fn test_browser_error() {
-        let err = BrowserUseError::Browser("Test error".to_string());
+        let err = BrowsingError::Browser("Test error".to_string());
         assert!(err.to_string().contains("Test error"));
     }
 
     #[test]
     fn test_dom_error() {
-        let err = BrowserUseError::Dom("DOM error".to_string());
+        let err = BrowsingError::Dom("DOM error".to_string());
         assert!(err.to_string().contains("DOM error"));
     }
 
     #[test]
     fn test_tool_error() {
-        let err = BrowserUseError::Tool("Tool error".to_string());
+        let err = BrowsingError::Tool("Tool error".to_string());
         assert!(err.to_string().contains("Tool error"));
     }
 
     #[test]
     fn test_llm_error() {
-        let err = BrowserUseError::Llm("LLM error".to_string());
+        let err = BrowsingError::Llm("LLM error".to_string());
         assert!(err.to_string().contains("LLM error"));
     }
 
     #[test]
     fn test_config_error() {
-        let err = BrowserUseError::Config("Config error".to_string());
+        let err = BrowsingError::Config("Config error".to_string());
         assert!(err.to_string().contains("Config error"));
     }
 
     #[test]
     fn test_error_display() {
         let errors = vec![
-            BrowserUseError::Browser("browser".to_string()),
-            BrowserUseError::Dom("dom".to_string()),
-            BrowserUseError::Tool("tool".to_string()),
-            BrowserUseError::Llm("llm".to_string()),
-            BrowserUseError::Config("config".to_string()),
+            BrowsingError::Browser("browser".to_string()),
+            BrowsingError::Dom("dom".to_string()),
+            BrowsingError::Tool("tool".to_string()),
+            BrowsingError::Llm("llm".to_string()),
+            BrowsingError::Config("config".to_string()),
         ];
 
         for err in errors {

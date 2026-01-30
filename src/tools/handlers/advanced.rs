@@ -2,7 +2,7 @@
 
 use super::Handler;
 use crate::agent::views::ActionResult;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use serde_json::json;
@@ -19,7 +19,7 @@ impl Handler for AdvancedHandler {
             "evaluate" => self.evaluate(params, context).await,
             "upload_file" => self.upload_file(params, context).await,
             "wait" => self.wait(params).await,
-            _ => Err(BrowserUseError::Tool("Unknown advanced action".into())),
+            _ => Err(BrowsingError::Tool("Unknown advanced action".into())),
         }
     }
 }
@@ -47,7 +47,7 @@ impl AdvancedHandler {
 
         for pattern in dangerous_patterns {
             if expression.to_lowercase().contains(pattern) {
-                return Err(BrowserUseError::Tool(format!("Potentially dangerous JavaScript detected: {}", pattern)));
+                return Err(BrowsingError::Tool(format!("Potentially dangerous JavaScript detected: {}", pattern)));
             }
         }
 
@@ -68,29 +68,29 @@ impl AdvancedHandler {
         let path = params.get_required_str("path")?;
 
         if path.contains("..") || path.contains("~") {
-            return Err(BrowserUseError::Tool("Invalid file path: path traversal not allowed".into()));
+            return Err(BrowsingError::Tool("Invalid file path: path traversal not allowed".into()));
         }
 
         let absolute_path = Path::new(path).canonicalize()
-            .map_err(|_| BrowserUseError::Tool("Invalid file path: cannot resolve to absolute path".into()))?;
+            .map_err(|_| BrowsingError::Tool("Invalid file path: cannot resolve to absolute path".into()))?;
 
         if !absolute_path.exists() {
-            return Err(BrowserUseError::Tool(format!("File {} does not exist", path)));
+            return Err(BrowsingError::Tool(format!("File {} does not exist", path)));
         }
 
         if !absolute_path.is_file() {
-            return Err(BrowserUseError::Tool(format!("Path {} is not a file", path)));
+            return Err(BrowsingError::Tool(format!("Path {} is not a file", path)));
         }
 
         let path_str = absolute_path.to_str()
-            .ok_or_else(|| BrowserUseError::Tool("Invalid file path: non-UTF8 characters".into()))?;
+            .ok_or_else(|| BrowsingError::Tool("Invalid file path: non-UTF8 characters".into()))?;
 
         let element = context.selector_map.and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {} not found", index)))?;
 
         let client = context.browser.get_cdp_client()?;
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index))
+            BrowsingError::Tool(format!("Element index {} has no backend_node_id", index))
         })?;
 
         let node_id = {
@@ -98,9 +98,9 @@ impl AdvancedHandler {
                 "backendNodeIds": [backend_node_id]
             })).await?;
             let node_ids = result.get("nodeIds").and_then(|v| v.as_array())
-                .ok_or_else(|| BrowserUseError::Dom("No nodeIds in response".into()))?;
+                .ok_or_else(|| BrowsingError::Dom("No nodeIds in response".into()))?;
             node_ids.first().and_then(|v| v.as_u64())
-                .ok_or_else(|| BrowserUseError::Dom("Invalid nodeId".into()))? as u32
+                .ok_or_else(|| BrowsingError::Dom("Invalid nodeId".into()))? as u32
         };
 
         let session_id = context.browser.get_session_id()?;
@@ -108,7 +108,7 @@ impl AdvancedHandler {
             "nodeId": node_id,
             "files": [path_str]
         }), Some(&session_id)).await
-            .map_err(|e| BrowserUseError::Tool(format!("Failed to upload file: {}", e)))?;
+            .map_err(|e| BrowsingError::Tool(format!("Failed to upload file: {}", e)))?;
 
         let memory = format!("Uploaded file {} to element {}", path_str, index);
         info!("📁 {}", memory);

@@ -2,7 +2,7 @@
 
 use super::Handler;
 use crate::agent::views::ActionResult;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use tracing::info;
@@ -15,7 +15,7 @@ impl Handler for TabsHandler {
         match params.get_action_type().unwrap_or("unknown") {
             "switch" => self.switch_tab(params, context).await,
             "close" => self.close_tab(params, context).await,
-            _ => Err(BrowserUseError::Tool("Unknown tabs action".into())),
+            _ => Err(BrowsingError::Tool("Unknown tabs action".into())),
         }
     }
 }
@@ -58,6 +58,6 @@ impl TabsHandler {
                 return Ok(tab.target_id);
             }
         }
-        Err(BrowserUseError::Browser(format!("No target ID found ending with {}", tab_id)))
+        Err(BrowsingError::Browser(format!("No target ID found ending with {}", tab_id)))
     }
 }

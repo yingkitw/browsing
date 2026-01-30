@@ -1,7 +1,7 @@
 //! Browser session lifecycle tests
 
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::error::{BrowserUseError, Result};
+use browsing::browser::{Browser, BrowserProfile};
+use browsing::error::{BrowsingError, Result};
 use std::time::Duration;
 use tokio::time::timeout;
 
@@ -95,7 +95,7 @@ async fn test_browser_timeout_handling() {
     let result = timeout(Duration::from_secs(1), async {
         // In a real scenario, this might be a slow operation
         tokio::time::sleep(Duration::from_millis(500)).await;
-        Ok::<(), BrowserUseError>(())
+        Ok::<(), BrowsingError>(())
     }).await;
     
     // Should complete within timeout
@@ -105,7 +105,7 @@ async fn test_browser_timeout_handling() {
 #[cfg(unix)]
 #[tokio::test]
 async fn test_browser_signal_handling() {
-    use browser_use::utils::signal;
+    use browsing::utils::signal;
     
     // Test signal handling for graceful shutdown
     let initial_state = signal::is_shutdown_requested();

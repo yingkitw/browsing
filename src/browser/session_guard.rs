@@ -4,7 +4,7 @@
 //! reducing boilerplate and ensuring consistent error handling.
 
 use crate::browser::cdp::{CdpClient, CdpSession};
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -36,7 +36,7 @@ impl<'a> SessionGuard<'a> {
     pub fn get_active_session(&self) -> Result<&'a CdpSession> {
         self.current_target_id
             .and_then(|id| self.sessions.get(id))
-            .ok_or_else(|| BrowserUseError::Browser("No active session".to_string()))
+            .ok_or_else(|| BrowsingError::Browser("No active session".to_string()))
     }
 
     /// Get the CDP client for the active session

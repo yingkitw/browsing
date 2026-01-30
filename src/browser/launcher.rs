@@ -1,7 +1,7 @@
 //! Browser launcher for local browser instances
 
 use crate::browser::profile::BrowserProfile;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -48,7 +48,7 @@ impl BrowserLauncher {
             }
         }
 
-        Err(BrowserUseError::Browser(
+        Err(BrowsingError::Browser(
             "No browser executable found. Please install Chrome/Chromium or provide executable_path".to_string(),
         ))
     }
@@ -116,7 +116,7 @@ impl BrowserLauncher {
             }
         }
 
-        Err(BrowserUseError::Browser(
+        Err(BrowsingError::Browser(
             "No free port found for CDP".to_string(),
         ))
     }
@@ -174,7 +174,7 @@ impl BrowserLauncher {
 
         let child = command
             .spawn()
-            .map_err(|e| BrowserUseError::Browser(format!("Failed to launch browser: {e}")))?;
+            .map_err(|e| BrowsingError::Browser(format!("Failed to launch browser: {e}")))?;
 
         self.process = Some(child);
 
@@ -201,7 +201,7 @@ impl BrowserLauncher {
             sleep(delay).await;
         }
 
-        Err(BrowserUseError::Browser(
+        Err(BrowsingError::Browser(
             "CDP endpoint did not become ready in time".to_string(),
         ))
     }

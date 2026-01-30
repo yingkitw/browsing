@@ -4,10 +4,9 @@ use crate::agent::json_extractor::JSONExtractor;
 use crate::agent::views::{
     ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState,
 };
-use crate::browser::Browser;
-use crate::dom::DomService;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::llm::base::{ChatMessage, ChatModel};
+use crate::traits::{BrowserClient, DOMProcessor};
 use crate::tools::Tools;
 use crate::tools::views::ActionModel;
 use serde_json::Value;
@@ -16,10 +15,10 @@ use tracing::info;
 /// Agent for autonomous web automation
 pub struct Agent<L: ChatModel> {
     task: String,
-    browser: Browser,
+    browser: Box<dyn BrowserClient>,
     llm: L,
     tools: Tools,
-    dom_service: DomService,
+    dom_processor: Box<dyn DOMProcessor>,
     max_steps: u32,
     settings: AgentSettings,
     state: AgentState,
@@ -60,14 +59,19 @@ impl UsageTracker {
 }
 
 impl<L: ChatModel> Agent<L> {
-    /// Create a new Agent with the specified task, browser, and LLM
-    pub fn new(task: String, browser: Browser, llm: L) -> Self {
+    /// Create a new Agent with the specified task, browser, DOM processor, and LLM
+    pub fn new(
+        task: String,
+        browser: Box<dyn BrowserClient>,
+        dom_processor: Box<dyn DOMProcessor>,
+        llm: L,
+    ) -> Self {
         Self {
             task: task.clone(),
             browser,
             llm,
             tools: Tools::default(),
-            dom_service: DomService::new(),
+            dom_processor,
             max_steps: 100,
             settings: AgentSettings::default(),
             state: AgentState::default(),
@@ -95,14 +99,6 @@ impl<L: ChatModel> Agent<L> {
     pub async fn run(&mut self) -> Result<AgentHistoryList> {
         // Start browser
         self.browser.start().await?;
-
-        // Initialize DOM service with browser's CDP client, session, and target ID
-        let cdp_client = self.browser.get_cdp_client()?;
-        let session_id = self.browser.get_session_id()?;
-        let target_id = self.browser.get_current_target_id()?;
-        self.dom_service = DomService::new()
-            .with_cdp_client(cdp_client, session_id)
-            .with_target_id(target_id);
 
         // Extract URL from task if present
         let initial_url = crate::utils::extract_urls(&self.task).first().cloned();
@@ -151,7 +147,7 @@ impl<L: ChatModel> Agent<L> {
                 // Convert serde_json::Value to ActionModel
                 let action: ActionModel =
                     serde_json::from_value(action_value.clone()).map_err(|e| {
-                        BrowserUseError::Agent(format!("Failed to parse action: {e}"))
+                        BrowsingError::Agent(format!("Failed to parse action: {e}"))
                     })?;
 
                 match self.execute_action(&action).await {
@@ -199,8 +195,8 @@ impl<L: ChatModel> Agent<L> {
     }
 
     async fn get_page_state(&self) -> Result<String> {
-        // Get page state from DOM service
-        self.dom_service.get_page_state_string().await
+        // Get page state from DOM processor
+        self.dom_processor.get_page_state_string().await
     }
 
     fn build_messages(&self, page_state: &str) -> Result<Vec<ChatMessage>> {
@@ -243,23 +239,23 @@ impl<L: ChatModel> Agent<L> {
 
         // Parse JSON
         let value: Value = serde_json::from_str(&repaired)
-            .map_err(|e| BrowserUseError::Agent(format!("Failed to parse agent output: {e}")))?;
+            .map_err(|e| BrowsingError::Agent(format!("Failed to parse agent output: {e}")))?;
 
         // Convert to AgentOutput
         let agent_output = serde_json::from_value(value).map_err(|e| {
-            BrowserUseError::Agent(format!("Failed to deserialize agent output: {e}"))
+            BrowsingError::Agent(format!("Failed to deserialize agent output: {e}"))
         })?;
 
         Ok(agent_output)
     }
 
     async fn execute_action(&mut self, action: &ActionModel) -> Result<ActionResult> {
-        // Get selector map from DOM service
-        let selector_map = self.dom_service.get_selector_map().await.ok();
+        // Get selector map from DOM processor
+        let selector_map = self.dom_processor.get_selector_map().await.ok();
 
         // Execute action via tools
         self.tools
-            .act(action.clone(), &mut self.browser, selector_map.as_ref())
+            .act(action.clone(), &mut *self.browser, selector_map.as_ref())
             .await
     }
 

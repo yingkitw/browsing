@@ -92,7 +92,7 @@ impl<'a> ActionParams<'a> {
             .and_then(|v| v.as_u64())
             .map(|i| i as u32)
             .ok_or_else(|| {
-                crate::error::BrowserUseError::Tool(format!("Missing '{}' parameter", key))
+                crate::error::BrowsingError::Tool(format!("Missing '{}' parameter", key))
             })
     }
 
@@ -102,7 +102,7 @@ impl<'a> ActionParams<'a> {
             .get(key)
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                crate::error::BrowserUseError::Tool(format!("Missing '{}' parameter", key))
+                crate::error::BrowsingError::Tool(format!("Missing '{}' parameter", key))
             })
     }
 

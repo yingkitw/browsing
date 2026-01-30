@@ -4,7 +4,7 @@
 
 use super::Handler;
 use crate::agent::views::ActionResult;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use tracing::info;
@@ -25,7 +25,7 @@ impl Handler for NavigationHandler {
             "search" => self.search(params, context).await,
             "navigate" => self.navigate(params, context).await,
             "go_back" => self.go_back(context).await,
-            _ => Err(BrowserUseError::Tool(format!(
+            _ => Err(BrowsingError::Tool(format!(
                 "Unknown navigation action: {action_type}"
             ))),
         }
@@ -46,7 +46,7 @@ impl NavigationHandler {
             "google" => format!("https://www.google.com/search?q={encoded_query}&udm=14"),
             "bing" => format!("https://www.bing.com/search?q={encoded_query}"),
             _ => {
-                return Err(BrowserUseError::Tool(format!(
+                return Err(BrowsingError::Tool(format!(
                     "Unsupported search engine: {}. Options: duckduckgo, google, bing",
                     engine
                 )))

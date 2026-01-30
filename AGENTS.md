@@ -150,7 +150,7 @@ use crate::error::Result as BrowserUseResult;
 ## Important Notes
 
 1. **CDP Integration**: The project uses Chrome DevTools Protocol (CDP) for browser automation
-2. **LLM Integration**: Primary LLM integration is with Watsonx, but the code supports other LLMs
+2. **LLM Integration**: Implement the ChatModel trait for your LLM provider
 3. **Token Tracking**: The project tracks LLM token usage - maintain this in all changes
 4. **Browser Lifecycle**: Ensure proper cleanup of browser resources in all code paths
 5. **Error Recovery**: The agent system includes error recovery mechanisms

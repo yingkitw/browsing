@@ -1,6 +1,6 @@
 //! Tests for LLM integration
 
-use browser_use::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage};
+use browsing::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage};
 
 #[test]
 fn test_chat_message_creation() {

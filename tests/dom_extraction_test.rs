@@ -1,12 +1,12 @@
 //! DOM extraction and serialization tests
 
-use browser_use::dom::serializer::SimplifiedNode;
-use browser_use::dom::service::DomService;
-use browser_use::dom::views::{
+use browsing::dom::serializer::SimplifiedNode;
+use browsing::dom::service::DomService;
+use browsing::dom::views::{
     DOMElement, DOMRect, EnhancedAXNode, EnhancedDOMTreeNode, 
     NodeType, SerializedDOMState
 };
-use browser_use::browser::{Browser, BrowserProfile};
+use browsing::browser::{Browser, BrowserProfile};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -22,7 +22,7 @@ async fn test_dom_service_configuration() {
     let dom_service = DomService::new()
         .with_browser(std::sync::Arc::new(Browser::new(BrowserProfile::default())))
         .with_cdp_client(
-            std::sync::Arc::new(browser_use::browser::cdp::CdpClient::new(
+            std::sync::Arc::new(browsing::browser::cdp::CdpClient::new(
                 "ws://localhost:9222".to_string()
             )),
             "test-session".to_string()
@@ -147,7 +147,7 @@ fn test_dom_rect_creation() {
 #[test]
 fn test_ax_node_creation() {
     let mut properties = Vec::new();
-    properties.push(browser_use::dom::views::EnhancedAXProperty {
+    properties.push(browsing::dom::views::EnhancedAXProperty {
         name: "role".to_string(),
         value: Some(json!("button")),
     });

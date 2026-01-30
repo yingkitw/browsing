@@ -1,28 +1,28 @@
 //! Error handling tests
 
 use std::error::Error;
-use browser_use::error::{BrowserUseError, Result};
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::tools::service::Tools;
-use browser_use::dom::service::DomService;
+use browsing::error::{BrowsingError, Result};
+use browsing::browser::{Browser, BrowserProfile};
+use browsing::tools::service::Tools;
+use browsing::dom::service::DomService;
 use serde_json::json;
 
 #[test]
 fn test_error_variants() {
     // Test all error variants can be created
     let errors = [
-        BrowserUseError::Config("Invalid configuration".to_string()),
-        BrowserUseError::Io(std::io::Error::new(
+        BrowsingError::Config("Invalid configuration".to_string()),
+        BrowsingError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "File not found"
         )),
-        BrowserUseError::Browser("Browser startup failed".to_string()),
-        BrowserUseError::Cdp("CDP connection lost".to_string()),
-        BrowserUseError::Llm("LLM API error".to_string()),
-        BrowserUseError::Agent("Agent execution failed".to_string()),
-        BrowserUseError::Dom("DOM extraction failed".to_string()),
-        BrowserUseError::Tool("Tool execution failed".to_string()),
-        BrowserUseError::Validation("Invalid input".to_string()),
+        BrowsingError::Browser("Browser startup failed".to_string()),
+        BrowsingError::Cdp("CDP connection lost".to_string()),
+        BrowsingError::Llm("LLM API error".to_string()),
+        BrowsingError::Agent("Agent execution failed".to_string()),
+        BrowsingError::Dom("DOM extraction failed".to_string()),
+        BrowsingError::Tool("Tool execution failed".to_string()),
+        BrowsingError::Validation("Invalid input".to_string()),
     ];
     
     // All errors should be creatable
@@ -33,12 +33,12 @@ fn test_error_variants() {
 
 #[test]
 fn test_error_display_formatting() {
-    let error = BrowserUseError::Config("Browser profile not found".to_string());
+    let error = BrowsingError::Config("Browser profile not found".to_string());
     let display_str = format!("{}", error);
     assert!(display_str.contains("Configuration error"));
     assert!(display_str.contains("Browser profile not found"));
     
-    let error = BrowserUseError::Tool("Invalid action".to_string());
+    let error = BrowsingError::Tool("Invalid action".to_string());
     let display_str = format!("{}", error);
     assert!(display_str.contains("Tool error"));
     assert!(display_str.contains("Invalid action"));
@@ -50,7 +50,7 @@ fn test_error_chain() {
         std::io::ErrorKind::PermissionDenied,
         "Cannot read file"
     );
-    let browser_error = BrowserUseError::Io(io_error);
+    let browser_error = BrowsingError::Io(io_error);
     
     // Error source should be preserved
     assert!(browser_error.source().is_some());
@@ -66,7 +66,7 @@ fn test_result_type_alias() {
     }
     
     fn returns_error() -> Result<String> {
-        Err(BrowserUseError::Validation("Invalid input".to_string()))
+        Err(BrowsingError::Validation("Invalid input".to_string()))
     }
     
     assert!(returns_result().is_ok());
@@ -103,7 +103,7 @@ async fn test_tools_error_scenarios() {
         "params": {}
     });
     
-    let action_model: std::result::Result<browser_use::tools::views::ActionModel, serde_json::Error> = 
+    let action_model: std::result::Result<browsing::tools::views::ActionModel, serde_json::Error> = 
         serde_json::from_value(invalid_action);
     
     // Should create model but execution would fail
@@ -145,12 +145,12 @@ fn test_error_recovery_patterns() {
 #[test]
 fn test_error_with_context() {
     // Test adding context to errors
-    let base_error = BrowserUseError::Cdp("Connection failed".to_string());
+    let base_error = BrowsingError::Cdp("Connection failed".to_string());
     
     // In a real scenario, we might add context
     let contextual_error = match base_error {
-        BrowserUseError::Cdp(msg) => 
-            BrowserUseError::Cdp(format!("CDP error during startup: {}", msg)),
+        BrowsingError::Cdp(msg) => 
+            BrowsingError::Cdp(format!("CDP error during startup: {}", msg)),
         other => other,
     };
     
@@ -163,13 +163,13 @@ fn test_multiple_error_combinations() {
     
     fn complex_operation(might_fail: bool) -> Result<String> {
         if might_fail {
-            return Err(BrowserUseError::Validation("Input validation failed".to_string()));
+            return Err(BrowsingError::Validation("Input validation failed".to_string()));
         }
         
         // Simulate another potential failure point
         // Using a deterministic check instead of random for test reproducibility
         if false {
-            return Err(BrowserUseError::Tool("Tool execution failed".to_string()));
+            return Err(BrowsingError::Tool("Tool execution failed".to_string()));
         }
         
         Ok("Operation completed".to_string())
@@ -178,7 +178,7 @@ fn test_multiple_error_combinations() {
     // Test both error cases
     let result1 = complex_operation(true);
     assert!(result1.is_err());
-    assert!(matches!(result1.unwrap_err(), BrowserUseError::Validation(_)));
+    assert!(matches!(result1.unwrap_err(), BrowsingError::Validation(_)));
     
     // Note: Can't test random case deterministically
 }
@@ -191,9 +191,9 @@ fn test_error_aggregation() {
     
     for i in 0..3 {
         match i {
-            0 => errors.push(BrowserUseError::Config("Config error".to_string())),
-            1 => errors.push(BrowserUseError::Browser("Browser error".to_string())),
-            2 => errors.push(BrowserUseError::Llm("LLM error".to_string())),
+            0 => errors.push(BrowsingError::Config("Config error".to_string())),
+            1 => errors.push(BrowsingError::Browser("Browser error".to_string())),
+            2 => errors.push(BrowsingError::Llm("LLM error".to_string())),
             _ => unreachable!(),
         }
     }
@@ -220,11 +220,11 @@ fn test_async_error_propagation() {
     let result: Result<String> = rt.block_on(async {
         // Simulate async operation that might fail
         if true {
-            return Err(BrowserUseError::Agent("Async operation failed".to_string()));
+            return Err(BrowsingError::Agent("Async operation failed".to_string()));
         }
         Ok("Async success".to_string())
     });
     
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), BrowserUseError::Agent(_)));
+    assert!(matches!(result.unwrap_err(), BrowsingError::Agent(_)));
 }

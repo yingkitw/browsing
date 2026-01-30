@@ -2,7 +2,7 @@
 
 use crate::actor::mouse::MouseButton;
 use crate::browser::cdp::CdpClient;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -35,11 +35,11 @@ impl Element {
         let node_ids = result
             .get("nodeIds")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| BrowserUseError::Dom("No nodeIds in response".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No nodeIds in response".to_string()))?;
         let node_id = node_ids
             .first()
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Dom("Invalid nodeId".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("Invalid nodeId".to_string()))?;
         Ok(node_id as u32)
     }
 
@@ -291,7 +291,7 @@ impl Element {
     pub async fn screenshot(&self, format: Option<&str>, quality: Option<u32>) -> Result<String> {
         // Get element's bounding box
         let (x, y, width, height) = self.get_bounding_box().await?.ok_or_else(|| {
-            BrowserUseError::Browser("Element is not visible or has no bounding box".to_string())
+            BrowsingError::Browser("Element is not visible or has no bounding box".to_string())
         })?;
 
         let format = format.unwrap_or("png");
@@ -320,7 +320,7 @@ impl Element {
         let data = result
             .get("data")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Browser("No screenshot data".to_string()))?;
+            .ok_or_else(|| BrowsingError::Browser("No screenshot data".to_string()))?;
 
         Ok(data.to_string())
     }

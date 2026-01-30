@@ -23,8 +23,7 @@ browser-use/
 │   ├── enhanced_snapshot.rs # CDP snapshot processing
 │   └── views.rs    # DOM data structures
 ├── llm/            # LLM integration
-│   ├── base.rs     # ChatModel trait
-│   └── watsonx.rs  # Watsonx implementation
+│   └── base.rs     # ChatModel trait
 ├── tools/          # Action/tool registry
 │   ├── service.rs  # Tools service
 │   └── views.rs    # Action types
@@ -60,7 +59,6 @@ graph TB
     
     subgraph "LLM Layer"
         L[ChatModel Trait]
-        W[WatsonxChat]
     end
     
     subgraph "Tools Layer"
@@ -207,7 +205,7 @@ Browser::take_screenshot()
 ### 3. Trait-based LLM Integration
 
 - **Rationale**: Allows multiple LLM providers
-- **Implementation**: `ChatModel` trait with Watsonx as primary implementation
+- **Implementation**: `ChatModel` trait for any LLM provider
 
 ### 4. Enhanced DOM Nodes
 
@@ -265,7 +263,6 @@ pub enum BrowserUseError {
 - **futures-util**: Stream utilities
 
 ### LLM Integration
-- **watsonx-rs**: Watsonx SDK
 - **anyrepair**: JSON repair for LLM responses
 
 ### Utilities

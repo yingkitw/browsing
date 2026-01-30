@@ -1,8 +1,8 @@
 //! Tools service for action registry
 
 use crate::agent::views::ActionResult;
-use crate::browser::Browser;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
+use crate::traits::BrowserClient;
 use crate::tools::handlers::{AdvancedHandler, ContentHandler, InteractionHandler, NavigationHandler, TabsHandler, Handler};
 use crate::tools::registry::Registry;
 use crate::tools::views::{ActionContext, ActionModel, ActionParams};
@@ -140,7 +140,7 @@ impl Tools {
     pub async fn act(
         &self,
         action: ActionModel,
-        browser_session: &mut crate::browser::Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -153,7 +153,7 @@ impl Tools {
     pub async fn act_with_llm(
         &self,
         action: ActionModel,
-        browser_session: &mut crate::browser::Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -201,7 +201,7 @@ impl Tools {
             }
             // Extract action (requires LLM - use old method for now)
             "extract" => self.handle_extract(action, browser_session, llm).await,
-            _ => Err(BrowserUseError::Tool(format!(
+            _ => Err(BrowsingError::Tool(format!(
                 "Unknown action type: {action_type}"
             ))),
         }
@@ -222,14 +222,14 @@ impl Tools {
     async fn handle_search(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         // Parse search params
         let query = action
             .params
             .get("query")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'query' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'query' parameter".to_string()))?;
         let engine = action
             .params
             .get("engine")
@@ -243,7 +243,7 @@ impl Tools {
             "google" => format!("https://www.google.com/search?q={encoded_query}&udm=14"),
             "bing" => format!("https://www.bing.com/search?q={encoded_query}"),
             _ => {
-                return Err(BrowserUseError::Tool(format!(
+                return Err(BrowsingError::Tool(format!(
                     "Unsupported search engine: {engine}. Options: duckduckgo, google, bing"
                 )));
             }
@@ -263,13 +263,13 @@ impl Tools {
     async fn handle_navigate(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let url = action
             .params
             .get("url")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'url' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'url' parameter".to_string()))?;
         let new_tab = action
             .params
             .get("new_tab")
@@ -278,7 +278,7 @@ impl Tools {
 
         if new_tab {
             // Create new tab and navigate
-            let target_id = browser_session.create_new_tab(Some(url)).await?;
+            let target_id = browser_session.create_tab(Some(url)).await?;
             browser_session.switch_to_tab(&target_id).await?;
             let memory = format!("Opened new tab with URL {url}");
             info!("🔗 {}", memory);
@@ -303,7 +303,7 @@ impl Tools {
     async fn handle_click(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -312,7 +312,7 @@ impl Tools {
             .params
             .get("index")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))?
+            .ok_or_else(|| BrowsingError::Tool("Missing 'index' parameter".to_string()))?
             as u32;
 
         // Get backend_node_id from selector map
@@ -351,7 +351,7 @@ impl Tools {
     async fn handle_input(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -360,13 +360,13 @@ impl Tools {
             .params
             .get("index")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))?
+            .ok_or_else(|| BrowsingError::Tool("Missing 'index' parameter".to_string()))?
             as u32;
         let text = action
             .params
             .get("text")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'text' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'text' parameter".to_string()))?;
 
         // Get backend_node_id from selector map
         let backend_node_id = if let Some(selector_map) = selector_map {
@@ -418,13 +418,13 @@ impl Tools {
     async fn handle_switch_tab(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let tab_id = action
             .params
             .get("tab_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'tab_id' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'tab_id' parameter".to_string()))?;
 
         // Get full target ID from short tab ID
         let target_id = browser_session.get_target_id_from_tab_id(tab_id).await?;
@@ -447,13 +447,13 @@ impl Tools {
     async fn handle_close_tab(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let tab_id = action
             .params
             .get("tab_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'tab_id' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'tab_id' parameter".to_string()))?;
 
         // Get full target ID from short tab ID
         let target_id = browser_session.get_target_id_from_tab_id(tab_id).await?;
@@ -476,7 +476,7 @@ impl Tools {
     async fn handle_scroll(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let down = action
             .params
@@ -519,7 +519,7 @@ impl Tools {
     async fn handle_go_back(
         &self,
         _action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let page = browser_session.get_page()?;
         page.go_back().await?;
@@ -557,13 +557,13 @@ impl Tools {
     async fn handle_send_keys(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let keys = action
             .params
             .get("keys")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'keys' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'keys' parameter".to_string()))?;
 
         let page = browser_session.get_page()?;
 
@@ -588,13 +588,13 @@ impl Tools {
     async fn handle_evaluate(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let expression = action
             .params
             .get("expression")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'expression' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'expression' parameter".to_string()))?;
         
         // Basic sanitization check for potentially dangerous JavaScript
         let dangerous_patterns = [
@@ -615,7 +615,7 @@ impl Tools {
         
         for pattern in dangerous_patterns {
             if expression.to_lowercase().contains(pattern) {
-                return Err(BrowserUseError::Tool(format!(
+                return Err(BrowsingError::Tool(format!(
                     "Potentially dangerous JavaScript detected: {}",
                     pattern
                 )));
@@ -637,13 +637,13 @@ impl Tools {
     async fn handle_find_text(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
     ) -> Result<ActionResult> {
         let text = action
             .params
             .get("text")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'text' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'text' parameter".to_string()))?;
 
         let page = browser_session.get_page()?;
 
@@ -705,7 +705,7 @@ impl Tools {
     async fn handle_dropdown_options(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -714,19 +714,19 @@ impl Tools {
             .params
             .get("index")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))?
+            .ok_or_else(|| BrowsingError::Tool("Missing 'index' parameter".to_string()))?
             as u32;
 
         // Get element from selector map
         let element = selector_map
             .and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {index} not found")))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {index} not found")))?;
 
         let page = browser_session.get_page()?;
 
         // Get options using JavaScript
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {index} has no backend_node_id"))
+            BrowsingError::Tool(format!("Element index {index} has no backend_node_id"))
         })?;
 
         let script = format!(
@@ -789,7 +789,7 @@ impl Tools {
     async fn handle_select_dropdown(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -798,25 +798,25 @@ impl Tools {
             .params
             .get("index")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))?
+            .ok_or_else(|| BrowsingError::Tool("Missing 'index' parameter".to_string()))?
             as u32;
 
         let text = action
             .params
             .get("text")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'text' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'text' parameter".to_string()))?;
 
         // Get element from selector map
         let element = selector_map
             .and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {index} not found")))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {index} not found")))?;
 
         let page = browser_session.get_page()?;
 
         // Select option using JavaScript
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {index} has no backend_node_id"))
+            BrowsingError::Tool(format!("Element index {index} has no backend_node_id"))
         })?;
 
         let script = format!(
@@ -881,14 +881,14 @@ impl Tools {
                 .get("error")
                 .and_then(|v| v.as_str())
                 .unwrap_or("Failed to select dropdown option");
-            Err(BrowserUseError::Tool(error.to_string()))
+            Err(BrowsingError::Tool(error.to_string()))
         }
     }
 
     async fn handle_upload_file(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         selector_map: Option<
             &std::collections::HashMap<u32, crate::dom::views::DOMInteractedElement>,
         >,
@@ -897,52 +897,52 @@ impl Tools {
             .params
             .get("index")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'index' parameter".to_string()))?
+            .ok_or_else(|| BrowsingError::Tool("Missing 'index' parameter".to_string()))?
             as u32;
 
         let path = action
             .params
             .get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'path' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'path' parameter".to_string()))?;
 
         // Validate file path for security
         let normalized_path = std::path::Path::new(path);
 
         // Check for directory traversal attempts
         if path.contains("..") || path.contains("~") {
-            return Err(BrowserUseError::Tool(
+            return Err(BrowsingError::Tool(
                 "Invalid file path: path traversal not allowed".to_string(),
             ));
         }
 
         // Convert to absolute path to ensure it's what we expect
         let absolute_path = normalized_path.canonicalize().map_err(|_| {
-            BrowserUseError::Tool("Invalid file path: cannot resolve to absolute path".to_string())
+            BrowsingError::Tool("Invalid file path: cannot resolve to absolute path".to_string())
         })?;
 
         // Check if file exists
         if !absolute_path.exists() {
-            return Err(BrowserUseError::Tool(format!(
+            return Err(BrowsingError::Tool(format!(
                 "File {path} does not exist"
             )));
         }
 
         // Ensure it's a file, not a directory
         if !absolute_path.is_file() {
-            return Err(BrowserUseError::Tool(format!(
+            return Err(BrowsingError::Tool(format!(
                 "Path {path} is not a file"
             )));
         }
 
         let path_str = absolute_path.to_str().ok_or_else(|| {
-            BrowserUseError::Tool("Invalid file path: non-UTF8 characters".to_string())
+            BrowsingError::Tool("Invalid file path: non-UTF8 characters".to_string())
         })?;
 
         // Get element from selector map
         let element = selector_map
             .and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {index} not found")))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {index} not found")))?;
 
         // Get CDP client for file upload
         let client = browser_session.get_cdp_client()?;
@@ -950,7 +950,7 @@ impl Tools {
         // For file upload, we need to use DOM.setFileInputFiles
         // First, get the node ID
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {index} has no backend_node_id"))
+            BrowsingError::Tool(format!("Element index {index} has no backend_node_id"))
         })?;
 
         let node_id = {
@@ -963,11 +963,11 @@ impl Tools {
             let node_ids = result
                 .get("nodeIds")
                 .and_then(|v| v.as_array())
-                .ok_or_else(|| BrowserUseError::Dom("No nodeIds in response".to_string()))?;
+                .ok_or_else(|| BrowsingError::Dom("No nodeIds in response".to_string()))?;
             let node_id = node_ids
                 .first()
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| BrowserUseError::Dom("Invalid nodeId".to_string()))?;
+                .ok_or_else(|| BrowsingError::Dom("Invalid nodeId".to_string()))?;
             node_id as u32
         };
 
@@ -985,7 +985,7 @@ impl Tools {
         client
             .send_command_with_session("DOM.setFileInputFiles", params, Some(&session_id))
             .await
-            .map_err(|e| BrowserUseError::Tool(format!("Failed to upload file: {e}")))?;
+            .map_err(|e| BrowsingError::Tool(format!("Failed to upload file: {e}")))?;
 
         let memory = format!("Uploaded file {path_str} to element {index}");
         info!("📁 {}", memory);
@@ -999,14 +999,14 @@ impl Tools {
     async fn handle_extract(
         &self,
         action: ActionModel,
-        browser_session: &mut Browser,
+        browser_session: &mut dyn BrowserClient,
         llm: Option<&dyn crate::llm::base::ChatModel>,
     ) -> Result<ActionResult> {
         let query = action
             .params
             .get("query")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Tool("Missing 'query' parameter".to_string()))?;
+            .ok_or_else(|| BrowsingError::Tool("Missing 'query' parameter".to_string()))?;
 
         let _extract_links = action
             .params
@@ -1127,7 +1127,7 @@ You will be given a query and the text content of a webpage.
                         "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\n{}\n</result>",
                         current_url, query, "LLM extraction failed, returning raw content"
                     );
-                    Err(BrowserUseError::Tool(format!(
+                    Err(BrowsingError::Tool(format!(
                         "LLM extraction failed: {e}"
                     )))
                 }

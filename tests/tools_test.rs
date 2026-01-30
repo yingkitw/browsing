@@ -1,7 +1,7 @@
 //! Additional tests for tools service
 
-use browser_use::tools::service::Tools;
-use browser_use::tools::views::{ActionModel, RegisteredAction};
+use browsing::tools::service::Tools;
+use browsing::tools::views::{ActionModel, RegisteredAction};
 use serde_json::json;
 use std::collections::HashMap;
 

@@ -1,9 +1,9 @@
-//! Logging configuration for browser-use-rs
+//! Logging configuration for browsing-rs
 
 use tracing_subscriber::fmt;
 use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt, util::SubscriberInitExt};
 
-/// Initialize logging for browser-use-rs
+/// Initialize logging for browsing-rs
 pub fn setup_logging() {
     // Get log level from environment or default to INFO
     let log_level = std::env::var("BROWSER_USE_LOGGING_LEVEL")

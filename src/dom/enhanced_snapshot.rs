@@ -1,4 +1,4 @@
-//! Enhanced snapshot processing for browser-use DOM tree extraction
+//! Enhanced snapshot processing for browsing DOM tree extraction
 
 use crate::dom::views::{DOMRect, EnhancedSnapshotNode};
 use crate::error::Result;
@@ -52,7 +52,7 @@ pub fn build_snapshot_lookup(
         .get("documents")
         .and_then(|v| v.as_array())
         .ok_or_else(|| {
-            crate::error::BrowserUseError::Dom("No documents in snapshot".to_string())
+            crate::error::BrowsingError::Dom("No documents in snapshot".to_string())
         })?;
 
     if documents.is_empty() {
@@ -71,7 +71,7 @@ pub fn build_snapshot_lookup(
 
     for document in documents {
         let nodes = document.get("nodes").ok_or_else(|| {
-            crate::error::BrowserUseError::Dom("No nodes in document".to_string())
+            crate::error::BrowsingError::Dom("No nodes in document".to_string())
         })?;
         let layout = document.get("layout");
 

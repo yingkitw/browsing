@@ -1,13 +1,13 @@
-//! Comprehensive integration tests for browser-use
+//! Comprehensive integration tests for browsing
 
 use async_trait::async_trait;
-use browser_use::agent::views::ActionResult;
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::error::Result as BrowserUseResult;
-use browser_use::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel};
-use browser_use::tools::service::Tools;
-use browser_use::tools::views::{ActionHandler, ActionModel};
-use browser_use::utils::extract_urls;
+use browsing::agent::views::ActionResult;
+use browsing::browser::BrowserProfile;
+use browsing::error::Result as BrowserUseResult;
+use browsing::llm::base::{ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel};
+use browsing::tools::service::Tools;
+use browsing::tools::views::{ActionHandler, ActionContext, ActionModel, ActionParams};
+use browsing::utils::extract_urls;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -276,12 +276,12 @@ async fn test_tools_action_registration() {
 async fn test_tools_custom_action_registration() {
     struct TestActionHandler;
 
-    #[async_trait]
+    #[async_trait::async_trait]
     impl ActionHandler for TestActionHandler {
         async fn execute(
             &self,
-            _params: &HashMap<String, serde_json::Value>,
-            _browser: &mut Browser,
+            _params: &ActionParams,
+            _context: &mut ActionContext<'_>,
         ) -> BrowserUseResult<ActionResult> {
             Ok(ActionResult {
                 extracted_content: Some("Custom action executed".to_string()),

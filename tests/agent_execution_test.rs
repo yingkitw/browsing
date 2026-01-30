@@ -1,16 +1,17 @@
 //! Agent execution flow tests
 
 use async_trait::async_trait;
-use browser_use::agent::service::Agent;
-use browser_use::agent::views::{
+use browsing::agent::service::Agent;
+use browsing::dom::DOMProcessorImpl;
+use browsing::agent::views::{
     ActionResult, AgentHistory, AgentHistoryList, AgentSettings
 };
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::error::{BrowserUseError, Result};
-use browser_use::llm::base::{
+use browsing::browser::{Browser, BrowserProfile};
+use browsing::error::{BrowsingError, Result};
+use browsing::llm::base::{
     ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel
 };
-use browser_use::tools::service::Tools;
+use browsing::tools::service::Tools;
 use serde_json::json;
 
 // Mock LLM for testing
@@ -61,7 +62,7 @@ impl ChatModel for MockLLM {
                 stop_reason: Some("stop".to_string()),
             })
         } else {
-            Err(BrowserUseError::Llm("No more mock responses".to_string()))
+            Err(BrowsingError::Llm("No more mock responses".to_string()))
         }
     }
 
@@ -86,7 +87,7 @@ async fn test_agent_creation() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm);
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // Agent should be created successfully
     assert!(true); // No panic indicates success
@@ -101,7 +102,7 @@ async fn test_agent_configuration() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm)
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm)
         .with_max_steps(5)
         .with_settings(AgentSettings::default());
     
@@ -118,7 +119,7 @@ async fn test_agent_execution_without_browser() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let mut agent = Agent::new(task, browser, llm);
+    let mut agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // Running without starting browser should fail
     let result = agent.run().await;
@@ -135,7 +136,7 @@ async fn test_agent_action_validation() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm);
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // In a real scenario, this would test action parsing and validation
     assert!(true); // Placeholder for validation logic tests
@@ -155,7 +156,7 @@ async fn test_agent_step_execution() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let mut agent = Agent::new(task, browser, llm)
+    let mut agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm)
         .with_max_steps(3);
     
     // Track execution state
@@ -179,7 +180,7 @@ async fn test_agent_history_tracking() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm);
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // Create mock history
     let history = AgentHistoryList {
@@ -192,7 +193,7 @@ async fn test_agent_history_tracking() {
                 is_done: Some(false),
                 ..Default::default()
             }],
-            state: browser_use::browser::views::BrowserStateHistory {
+            state: browsing::browser::views::BrowserStateHistory {
                 url: "https://example.com".to_string(),
                 title: "Example".to_string(),
                 tabs: vec![],
@@ -224,7 +225,7 @@ async fn test_agent_error_recovery() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let mut agent = Agent::new(task, browser, llm)
+    let mut agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm)
         .with_settings(AgentSettings {
             max_failures: 2,
             ..Default::default()
@@ -252,7 +253,7 @@ async fn test_agent_token_tracking() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm);
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // Mock usage tracking
     let total_prompt_tokens = 100;
@@ -278,7 +279,7 @@ async fn test_agent_concurrency_handling() {
     };
     
     let agent = std::sync::Arc::new(tokio::sync::Mutex::new(
-        Agent::new(task, browser, llm)
+        Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm)
     ));
     
     // Test concurrent access
@@ -311,9 +312,9 @@ async fn test_agent_with_vision_mode() {
         response_index: std::sync::Mutex::new(0),
     };
     
-    let agent = Agent::new(task, browser, llm)
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm)
         .with_settings(AgentSettings {
-            use_vision: browser_use::agent::views::VisionMode::Enabled(true),
+            use_vision: browsing::agent::views::VisionMode::Enabled(true),
             ..Default::default()
         });
     
@@ -334,7 +335,7 @@ async fn test_agent_with_custom_tools() {
     // Tools now takes a list of exclude actions, not action definitions
     let tools = Tools::new(vec![]);
     
-    let agent = Agent::new(task, browser, llm);
+    let agent = Agent::new(task, Box::new(browser), Box::new(DOMProcessorImpl::new()), llm);
     
     // Agent should accept custom tools (in actual implementation)
     assert!(true); // No panic indicates success

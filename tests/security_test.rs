@@ -1,8 +1,8 @@
 //! Security tests for browser-use
 
-use browser_use::browser::{Browser, BrowserProfile};
-use browser_use::error::BrowserUseError;
-use browser_use::tools::service::Tools;
+use browsing::browser::{Browser, BrowserProfile};
+use browsing::error::BrowsingError;
+use browsing::tools::service::Tools;
 use serde_json::json;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -35,7 +35,7 @@ async fn test_path_traversal_prevention() {
         });
         
         // This should fail validation
-        let action_model: browser_use::tools::views::ActionModel = serde_json::from_value(action).unwrap();
+        let action_model: browsing::tools::views::ActionModel = serde_json::from_value(action).unwrap();
         let mut mock_browser = Browser::new(BrowserProfile::default());
         
         // Using a real browser would require actual CDP connection,
@@ -73,7 +73,7 @@ async fn test_js_sanitization() {
             }
         });
         
-        let action_model: browser_use::tools::views::ActionModel = serde_json::from_value(action).unwrap();
+        let action_model: browsing::tools::views::ActionModel = serde_json::from_value(action).unwrap();
         
         // Test the sanitization logic directly
         let result = validate_javascript(script);
@@ -120,105 +120,105 @@ async fn test_file_upload_validation() {
 }
 
 // Helper functions for validation
-fn validate_upload_path(path: &str) -> Result<(), BrowserUseError> {
+fn validate_upload_path(path: &str) -> Result<(), BrowsingError> {
     // Check for directory traversal attempts
     if path.contains("..") || path.contains("~") {
-        return Err(BrowserUseError::Tool("Invalid file path: path traversal not allowed".to_string()));
+        return Err(BrowsingError::Tool("Invalid file path: path traversal not allowed".to_string()));
     }
     
     // For the test, check for dangerous system paths
     if path.starts_with("/etc/") || path.contains("\\Windows\\System32") {
-        return Err(BrowserUseError::Tool("Invalid file path: system access not allowed".to_string()));
+        return Err(BrowsingError::Tool("Invalid file path: system access not allowed".to_string()));
     }
     
     // Check if file exists (for test)
     if path.contains("nonexistent.txt") {
-        return Err(BrowserUseError::Tool("File does not exist".to_string()));
+        return Err(BrowsingError::Tool("File does not exist".to_string()));
     }
     
     // Check if path is a directory (for test)
     if !path.contains(".txt") {
-        return Err(BrowserUseError::Tool("Path is not a file".to_string()));
+        return Err(BrowsingError::Tool("Path is not a file".to_string()));
     }
     
     Ok(())
 }
 
-fn validate_javascript(expression: &str) -> Result<(), BrowserUseError> {
+fn validate_javascript(expression: &str) -> Result<(), BrowsingError> {
     // Special case for localStorage.setItem which should be blocked
     let expr_lower = expression.to_lowercase();
     if expr_lower.contains("localstorage.setitem") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "localStorage.setItem access blocked".to_string()
         ));
     }
     
     // Check for dangerous patterns
     if expr_lower.contains("function") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "Function constructor access blocked".to_string()
         ));
     }
     
     // Check for eval
     if expr_lower.contains("eval(") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "eval access blocked".to_string()
         ));
     }
     
     // Check for document.cookie
     if expr_lower.contains("document.cookie") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "document.cookie access blocked".to_string()
         ));
     }
     
     // Check for fetch
     if expr_lower.contains("fetch(") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "fetch access blocked".to_string()
         ));
     }
     
     // Check for setTimeout
     if expr_lower.contains("settimeout") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "setTimeout access blocked".to_string()
         ));
     }
     
     // Check for setInterval
     if expr_lower.contains("setinterval") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "setInterval access blocked".to_string()
         ));
     }
     
     // Check for location.href
     if expr_lower.contains("location.href") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "location.href access blocked".to_string()
         ));
     }
     
     // Check for script tags
     if expr_lower.contains("<script") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "script tag usage blocked".to_string()
         ));
     }
     
     // Check for javascript: URLs
     if expr_lower.contains("javascript:") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "javascript: URL blocked".to_string()
         ));
     }
     
     // Check for data: URLs
     if expr_lower.contains("data:") {
-        return Err(BrowserUseError::Tool(
+        return Err(BrowsingError::Tool(
             "data: URL blocked".to_string()
         ));
     }

@@ -179,7 +179,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "browser-use"
+name = "browsing"
 version = "0.1.0"
 dependencies = [
  "anyhow",

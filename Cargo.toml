@@ -1,11 +1,11 @@
 [package]
-name = "browser-use"
+name = "browsing"
 version = "0.1.0"
 edition = "2024"
-authors = ["Browser Use Contributors"]
-license = "MIT"
-repository = "https://github.com/browser-use/browser-use-rs"
-description = "Make websites accessible for AI agents - Rust implementation"
+authors = ["Ying Kit WONG"]
+license = "Apache-2.0"
+repository = "https://github.com/yingkitw/browsing"
+description = "Autonomous web browsing for AI agents - Rust implementation"
 
 [dependencies]
 # Async runtime
@@ -48,8 +48,6 @@ base64 = "0.22"
 insta = "1.40"
 pulldown-cmark = "0.10"
 tempfile = "3.8"
-
-# Note: watsonx-rs is not used - we implement our own client
 
 # MCP
 rmcp = "0.1"

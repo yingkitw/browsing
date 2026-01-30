@@ -1,4 +1,4 @@
-//! Configuration management for browser-use-rs
+//! Configuration management for browsing-rs
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -90,16 +90,12 @@ impl Config {
                 proxy: None, // TODO: Parse from env vars
             },
             llm: LlmConfig {
-                api_key: std::env::var("WATSONX_API_KEY")
-                    .or_else(|_| std::env::var("IBM_WATSONX_API_KEY"))
-                    .ok(),
-                model: std::env::var("WATSONX_MODEL")
-                    .ok()
-                    .or_else(|| Some("ibm/granite-4-h-small".to_string())),
-                temperature: std::env::var("WATSONX_TEMPERATURE")
+                api_key: std::env::var("LLM_API_KEY").ok(),
+                model: std::env::var("LLM_MODEL").ok(),
+                temperature: std::env::var("LLM_TEMPERATURE")
                     .ok()
                     .and_then(|v| v.parse().ok()),
-                max_tokens: std::env::var("WATSONX_MAX_TOKENS")
+                max_tokens: std::env::var("LLM_MAX_TOKENS")
                     .ok()
                     .and_then(|v| v.parse().ok()),
             },

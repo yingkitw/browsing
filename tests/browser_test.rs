@@ -1,6 +1,6 @@
 //! Tests for browser session functionality
 
-use browser_use::browser::views::TabInfo;
+use browsing::browser::views::TabInfo;
 
 #[test]
 fn test_tab_info_creation() {
@@ -34,7 +34,7 @@ fn test_tab_info_serialization() {
 
 #[tokio::test]
 async fn test_browser_headless_startup() {
-    use browser_use::browser::{Browser, BrowserProfile};
+    use browsing::browser::{Browser, BrowserProfile};
     
     // Create a browser with headless configuration
     let profile = BrowserProfile {
@@ -65,7 +65,7 @@ async fn test_browser_headless_startup() {
 
 #[tokio::test]
 async fn test_browser_basic_workflow() {
-    use browser_use::browser::{Browser, BrowserProfile};
+    use browsing::browser::{Browser, BrowserProfile};
     
     // This test demonstrates the expected workflow
     // In CI environments without Chrome, this test would be skipped
@@ -100,8 +100,8 @@ async fn test_browser_basic_workflow() {
 
 #[test]
 fn test_browser_state_summary_structure() {
-    use browser_use::browser::views::BrowserStateSummary;
-    use browser_use::dom::views::SerializedDOMState;
+    use browsing::browser::views::BrowserStateSummary;
+    use browsing::dom::views::SerializedDOMState;
     use std::collections::HashMap;
 
     let dom_state = SerializedDOMState {

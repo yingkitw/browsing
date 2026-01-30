@@ -7,7 +7,7 @@
 ### Core Functionality ✅
 - ✅ Browser launch and CDP connection
 - ✅ DOM extraction and serialization
-- ✅ LLM integration (Watsonx)
+- ✅ LLM integration (ChatModel trait)
 - ✅ Agent execution loop
 - ✅ Screenshot support
 - ✅ Actor system (Page, Element, Mouse, Keyboard)
@@ -34,7 +34,7 @@
 - [x] Browser session and CDP client integration
 - [x] DOM serialization and extraction (complete implementation with CDP)
 - [x] DOM service integration with agent service
-- [x] LLM base trait and Watsonx integration (structure complete, needs watsonx-rs implementation)
+- [x] LLM base trait (ChatModel trait complete)
 - [x] Agent service basic structure (execution loop skeleton)
 - [x] Agent service implementation (action parsing, execution, history tracking)
 - [x] Logging setup (tracing integration)
@@ -91,9 +91,7 @@
 - [x] LLM base trait (ChatModel)
 - [x] ChatMessage types
 - [x] ChatInvokeCompletion types
-- [x] Complete Watsonx integration using watsonx-rs (HTTP streaming implemented, ready for watsonx-rs crate integration)
-- [x] Streaming support (HTTP SSE streaming implemented)
-- [x] Message formatting (messages_to_watsonx method)
+- [x] ChatModel trait with streaming support
 - [x] Token counting (usage information extraction from response)
 
 ### Tools/Actions
@@ -141,7 +139,7 @@
 ## Notes
 
 - Using single crate structure (not multi-crate workspace)
-- Using watsonx-rs for LLM integration
+- LLM integration via ChatModel trait
 - Using anyrepair for JSON repair
 - Using rmcp for MCP support
 - Rust edition 2024

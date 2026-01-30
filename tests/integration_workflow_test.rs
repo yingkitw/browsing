@@ -1,11 +1,12 @@
-//! Full integration test demonstrating browser-use-rs workflow
-//! 
+//! Full integration test demonstrating browsing workflow
+//!
 //! This test shows the expected workflow for browser automation:
 //! 1. Create browser with headless configuration
 //! 2. Configure LLM (mock in tests)
-//! 3. Create agent with task
-//! 4. Run agent to completion
-//! 
+//! 3. Create DOM processor
+//! 4. Create agent with task
+//! 5. Run agent to completion
+//!
 //! Note: This test requires Chrome/Chromium to be installed
 //! In CI environments without a browser, the test will skip gracefully
 
@@ -14,10 +15,11 @@ mod integration_workflow {
     #[tokio::test]
     #[ignore] // Run manually to test full workflow
     async fn test_complete_web_automation_workflow() {
-        use browser_use::agent::service::Agent;
-        use browser_use::browser::{Browser, BrowserProfile};
-        use browser_use::agent::views::AgentSettings;
-        
+        use browsing::agent::service::Agent;
+        use browsing::browser::{Browser, BrowserProfile};
+        use browsing::agent::views::AgentSettings;
+        use browsing::dom::DOMProcessorImpl;
+
         // Step 1: Create browser with headless configuration
         let profile = BrowserProfile {
             headless: Some(true), // Essential for CI/automation
@@ -25,19 +27,22 @@ mod integration_workflow {
             allowed_domains: None, // Allow all domains
             downloads_path: Some("/tmp/browser_downloads".into()),
         };
-        
-        let browser = Browser::new(profile);
-        
+
+        let browser = Box::new(Browser::new(profile));
+
         // Step 2: Configure LLM (mock for testing)
         let llm = create_mock_llm();
-        
-        // Step 3: Create agent with task
+
+        // Step 3: Create DOM processor
+        let dom_processor = Box::new(DOMProcessorImpl::new());
+
+        // Step 4: Create agent with task
         let task = "Navigate to https://example.com and extract main heading text".to_string();
-        
-        let mut agent = Agent::new(task, browser, llm)
+
+        let mut agent = Agent::new(task, browser, dom_processor, llm)
             .with_max_steps(10)
             .with_settings(AgentSettings {
-                use_vision: browser_use::agent::views::VisionMode::Auto,
+                use_vision: browsing::agent::views::VisionMode::Auto,
                 max_failures: 3,
                 use_thinking: true,
                 ..Default::default()
@@ -65,7 +70,7 @@ mod integration_workflow {
                 
                 // In tests, we might want to assert certain types of failures
                 match e {
-                    browser_use::error::BrowserUseError::Browser(msg) 
+                    browsing::error::BrowsingError::Browser(msg) 
                         if msg.contains("No browser executable") => {
                             // Expected in environments without Chrome
                             println!("Skipping test: {}", msg);
@@ -81,9 +86,9 @@ mod integration_workflow {
         // browser.stop().await?;
     }
     
-    fn create_mock_llm() -> impl browser_use::llm::base::ChatModel {
+    fn create_mock_llm() -> impl browsing::llm::base::ChatModel {
         use async_trait::async_trait;
-        use browser_use::llm::base::{
+        use browsing::llm::base::{
             ChatInvokeCompletion, ChatInvokeUsage, ChatMessage, ChatModel
         };
         use serde_json::json;
@@ -104,7 +109,7 @@ mod integration_workflow {
                 "mock-provider"
             }
             
-            async fn chat(&self, _messages: &[ChatMessage]) -> browser_use::error::Result<ChatInvokeCompletion<String>> {
+            async fn chat(&self, _messages: &[ChatMessage]) -> browsing::error::Result<ChatInvokeCompletion<String>> {
                 let index = {
                     let mut idx = self.index.lock().unwrap();
                     let current = *idx;
@@ -164,7 +169,7 @@ mod integration_workflow {
             async fn chat_stream(
                 &self,
                 _messages: &[ChatMessage],
-            ) -> browser_use::error::Result<Box<dyn futures::Stream<Item = browser_use::error::Result<String>> + Send + Unpin>> {
+            ) -> browsing::error::Result<Box<dyn futures::Stream<Item = browsing::error::Result<String>> + Send + Unpin>> {
                 // For testing purposes, return a simple stream with one message
                 let response = "Mock response";
                 Ok(Box::new(Box::pin(futures::stream::once(async move { 

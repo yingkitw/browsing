@@ -1,125 +1,120 @@
-# Browser-Use Rust
+# Browsing
 
-Rust implementation of Browser-Use - Make websites accessible for AI agents.
+**Autonomous web browsing for AI agents - Rust implementation**
 
-## Status
+Browsing is a powerful Rust library that enables AI agents to autonomously interact with web pages. It provides a clean, trait-based architecture for browser automation, DOM extraction, and LLM-driven web interactions.
 
-✅ **100% Complete** - All core functionality implemented and ready for production use.
+## ✨ Why Browsing?
 
-**Test Coverage**: 74+ tests passing across all modules (24 integration + 50+ unit tests)
+Building AI agents that can navigate and interact with websites is challenging. You need to:
 
-### ✅ Completed Features
+- **Extract structured data from unstructured HTML** - Parse complex DOM trees and make them LLM-readable
+- **Handle browser automation reliably** - Manage browser lifecycle, CDP connections, and process management
+- **Coordinate multiple subsystems** - Orchestrate DOM extraction, LLM inference, and action execution
+- **Maintain testability** - Mock components for unit testing without real browsers
+- **Support extensibility** - Add custom actions, browser backends, and LLM providers
 
-- **Browser Automation**: Local browser launch and CDP connection
-- **DOM Extraction**: Full DOM tree extraction via CDP (snapshot, DOM, AX trees)
-- **DOM Serialization**: LLM-ready DOM representation with interactive element indices
-- **LLM Integration**: Watsonx HTTP streaming support (ready for watsonx-rs integration)
-- **Agent Service**: Complete execution loop with action parsing and history tracking
-- **Screenshot Support**: Page, element, and full-page screenshot capture
-- **Actor System**: Page, Element, Mouse, and Keyboard interactions
-- **Tools/Actions**: Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate, find_text, dropdown_options, select_dropdown, upload_file, extract)
-- **Tab Management**: List, switch, close, and create tabs
-- **Custom Actions**: ActionHandler trait for registering custom actions
-- **Token Tracking**: Automatic usage tracking from LLM responses
-- **Browser State**: Complete browser state summary for LLM consumption
-- **Signal Handling**: Graceful shutdown on SIGINT/SIGTERM (Ctrl+C)
-- **Comprehensive Testing**: 74+ tests with mock LLM and integration test suite
+**Browsing solves all of this** with a clean, modular, and well-tested architecture.
 
-## Architecture
+## 🎯 Key Features
 
-```mermaid
-graph TB
-    A[Agent] --> B[Browser]
-    A --> C[LLM]
-    A --> D[Tools]
-    A --> E[DOM Service]
-    B --> F[CDP Client]
-    B --> G[Browser Launcher]
-    B --> H[Page Actor]
-    E --> I[DOM Serializer]
-    C --> J[Watsonx]
-    D --> K[Action Registry]
-    H --> L[Element Actor]
-    H --> M[Mouse Actor]
-```
+### 🏗️ Trait-Based Architecture
+- **BrowserClient trait** - Abstract browser operations for easy mocking and alternative backends
+- **DOMProcessor trait** - Pluggable DOM processing implementations
+- **ActionHandler trait** - Extensible action system for custom behaviors
 
-## Project Structure
+### 🤖 Autonomous Agent System
+- Complete agent execution loop with LLM integration
+- Robust action parsing with JSON repair
+- History tracking with state snapshots
+- Graceful error handling and recovery
 
-```
-browser-use-rs/
-├── src/
-│   ├── agent/          # Agent service for autonomous web automation
-│   ├── browser/        # Browser session, CDP, and launcher
-│   │   ├── session.rs  # Browser session management
-│   │   ├── cdp.rs      # CDP WebSocket client
-│   │   ├── launcher.rs # Local browser launcher
-│   │   └── profile.rs  # Browser configuration
-│   ├── dom/            # DOM parsing and serialization
-│   │   ├── service.rs  # DOM extraction service
-│   │   ├── serializer.rs # LLM-ready serialization
-│   │   └── enhanced_snapshot.rs # CDP snapshot processing
-│   ├── llm/            # LLM integration
-│   │   ├── base.rs     # ChatModel trait
-│   │   └── watsonx.rs  # Watsonx implementation
-│   ├── tools/          # Tools and actions registry
-│   ├── actor/          # Low-level browser interactions
-│   │   ├── page.rs     # Page operations
-│   │   ├── element.rs  # Element operations
-│   │   └── mouse.rs    # Mouse interactions
-│   ├── config/         # Configuration management
-│   ├── error/          # Error types
-│   ├── utils/          # Utility functions
-│   └── views/          # View types and data structures
-├── Cargo.toml
-├── TODO.md
-├── ARCHITECTURE.md
-└── README.md
-```
+### 🌐 Full Browser Automation
+- Cross-platform support (macOS, Linux, Windows)
+- Automatic browser detection
+- Chrome DevTools Protocol (CDP) integration
+- Tab management (create, switch, close)
+- Screenshot capture (page and element-level)
 
-## Getting Started
+### 📊 Advanced DOM Processing
+- Full CDP integration (DOM, AX tree, Snapshot)
+- LLM-ready serialization with interactive element indices
+- Accessibility tree support for better semantic understanding
+- Optimized for token efficiency
 
-### Prerequisites
+### 🔧 Extensible & Maintainable
+- Manager-based architecture (TabManager, NavigationManager, ScreenshotManager)
+- Custom action registration
+- Utility traits for reduced code duplication
+- Comprehensive test coverage (74+ tests)
 
-- Rust 1.88+ (edition 2024)
-- Chromium/Chrome browser (for CDP)
-- Watsonx API key (optional, for LLM integration)
-
-### Installation
+## 📦 Installation
 
 ```bash
+# Add to Cargo.toml
+[dependencies]
+browsing = "0.1"
+```
+
+```bash
+# Or clone from source
 git clone <repository>
-cd browser-use-rs
+cd browsing-rs
 cargo build
 ```
 
-### Usage
+## 🚀 Quick Start
+
+### Basic Example
 
 ```rust
-use browser_use::{Agent, Browser, BrowserProfile};
-use browser_use::llm::watsonx::WatsonxChat;
+use browsing::{Agent, Browser, BrowserProfile};
+use browsing::dom::DOMProcessorImpl;
+use browsing::llm::ChatModel;
+
+// Implement your own LLM by implementing the ChatModel trait
+struct MyLLM;
+
+#[async_trait::async_trait]
+impl ChatModel for MyLLM {
+    fn model(&self) -> &str { "my-model" }
+    fn provider(&self) -> &str { "my-provider" }
+    
+    async fn chat(&self, messages: &[ChatMessage]) -> Result<ChatInvokeCompletion<String>> {
+        // Your LLM implementation here
+        todo!()
+    }
+    
+    async fn chat_stream(&self, messages: &[ChatMessage]) 
+        -> Result<Box<dyn Stream<Item = Result<String>> + Send + Unpin>> {
+        // Your streaming implementation here
+        todo!()
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create browser profile
+    // 1. Create browser profile
     let profile = BrowserProfile::default();
-    let browser = Browser::new(profile);
-    
-    // Create LLM (Watsonx)
-    let llm = WatsonxChat::new(
-        std::env::var("WATSONX_API_KEY")?,
-        Some("ibm/granite-4-h-small".to_string()),
-    );
-    
-    // Create and run agent
+    let browser = Box::new(Browser::new(profile));
+
+    // 2. Create your LLM implementation
+    let llm = MyLLM;
+
+    // 3. Create DOM processor
+    let dom_processor = Box::new(DOMProcessorImpl::new());
+
+    // 4. Create and run agent
     let mut agent = Agent::new(
-        "Find the number 1 post on Show HN".to_string(),
+        "Find the top post on Hacker News".to_string(),
         browser,
+        dom_processor,
         llm,
     );
-    
+
     let history = agent.run().await?;
-    
-    println!("Completed in {} steps", history.history.len());
+    println!("✅ Completed in {} steps", history.history.len());
+
     Ok(())
 }
 ```
@@ -127,88 +122,335 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Browser Launch Options
 
 ```rust
-// Option 1: Launch local browser automatically
+use browsing::{Browser, BrowserProfile};
+
+// Option 1: Auto-launch browser (default)
 let profile = BrowserProfile::default();
 let browser = Browser::new(profile);
-// Browser will be launched automatically on start()
 
-// Option 2: Connect to existing browser via CDP URL
+// Option 2: Connect to existing browser
 let browser = Browser::new(profile)
     .with_cdp_url("http://localhost:9222".to_string());
 
-// Option 3: Use custom browser executable
+// Option 3: Custom browser executable
+use browsing::browser::launcher::BrowserLauncher;
 let launcher = BrowserLauncher::new(profile)
-    .with_executable_path(PathBuf::from("/path/to/chrome"));
+    .with_executable_path(std::path::PathBuf::from("/path/to/chrome"));
 ```
 
-### Screenshot Support
+### Using Traits for Testing
 
 ```rust
-// Page screenshot
-let screenshot = browser.take_screenshot(
-    Some("screenshot.png"),
-    false, // full_page
-    Some("png"),
-    None,  // quality
-).await?;
+use browsing::traits::{BrowserClient, DOMProcessor};
+use browsing::agent::Agent;
+use std::sync::Arc;
 
-// Element screenshot
-let element = page.get_element(backend_node_id).await;
-let element_screenshot = element.screenshot(Some("png"), None).await?;
+// Create mock browser for testing
+struct MockBrowser {
+    navigation_count: std::sync::atomic::AtomicUsize,
+}
+
+#[async_trait::async_trait]
+impl BrowserClient for MockBrowser {
+    async fn start(&mut self) -> Result<(), BrowsingError> {
+        Ok(())
+    }
+
+    async fn navigate(&mut self, _url: &str) -> Result<(), BrowsingError> {
+        self.navigation_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    // ... implement other trait methods
+}
+
+#[tokio::test]
+async fn test_agent_with_mock_browser() {
+    let mock_browser = Box::new(MockBrowser {
+        navigation_count: std::sync::atomic::AtomicUsize::new(0),
+    });
+
+    // Test agent behavior without real browser
+    let dom_processor = Box::new(MockDOMProcessor::new());
+    let llm = MockLLM::new();
+
+    let mut agent = Agent::new("Test task".to_string(), mock_browser, dom_processor, llm);
+    // ... test agent
+}
 ```
 
-## Key Features
+## 📚 Usage Examples
 
-### DOM Extraction
+### Screenshot Capture
 
-- **Full CDP Integration**: Extracts DOM, Accessibility (AX), and Snapshot trees
-- **Enhanced Nodes**: Combines data from multiple CDP sources
-- **LLM Serialization**: Converts DOM tree to text format for LLM consumption
-- **Selector Map**: Maps interactive elements to indices for easy reference
+```rust
+use browsing::Browser;
 
-### Browser Automation
+let browser = Browser::new(BrowserProfile::default());
+browser.start().await?;
 
-- **Cross-platform**: Supports macOS, Linux, and Windows
-- **Automatic Browser Detection**: Finds installed browsers automatically
-- **CDP Connection**: Full Chrome DevTools Protocol support
-- **Process Management**: Automatic browser lifecycle management
+// Full page screenshot
+let screenshot_data = browser.take_screenshot(
+    Some("screenshot.png"),  // path
+    true,                      // full_page
+).await?;
 
-### Agent System
+// Viewport only
+let viewport = browser.take_screenshot(
+    Some("viewport.png"),
+    false,
+).await?;
+```
 
-- **Autonomous Execution**: Complete agent loop with LLM integration
-- **Action Parsing**: JSON repair for robust LLM response handling
-- **History Tracking**: Complete execution history with state snapshots
-- **Error Recovery**: Graceful error handling and retry logic
+### Direct Browser Control
 
-## Migration Progress
+```rust
+use browsing::{Browser, BrowserProfile};
 
-See [TODO.md](TODO.md) for detailed migration status.
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut browser = Browser::new(BrowserProfile::default());
+    browser.start().await?;
 
-**Current Status**: Core functionality complete (100% migrated)
-- ✅ Browser launch and CDP connection
-- ✅ DOM extraction and serialization
-- ✅ LLM integration (Watsonx)
-- ✅ Agent execution loop
-- ✅ Screenshot support
-- ✅ Tab management
-- ✅ Custom action registration
-- ✅ Token usage tracking
-- ✅ Browser state summary
-- ✅ Signal handling (graceful shutdown)
-- ✅ Comprehensive test suite (74+ tests)
-- ⏳ Documentation (API docs, examples, migration guide)
-- ⏳ Advanced optimizations (paint order filtering, cost calculation)
+    // Navigate
+    browser.navigate("https://example.com").await?;
 
-## Dependencies
+    // Get current URL
+    let url = browser.get_current_url().await?;
+    println!("Current URL: {}", url);
 
-- **tokio**: Async runtime
-- **reqwest**: HTTP client
-- **serde**: Serialization
-- **watsonx-rs**: Watsonx SDK
-- **anyrepair**: JSON repair
-- **tokio-tungstenite**: WebSocket for CDP
-- **base64**: Base64 encoding/decoding
+    // Tab management
+    browser.create_new_tab(Some("https://hackernews.com")).await?;
+    let tabs = browser.get_tabs().await?;
+    println!("Open tabs: {}", tabs.len());
 
-## License
+    // Switch tabs
+    browser.switch_to_tab(&tabs[0].target_id).await?;
 
-MIT
+    // Go back
+    browser.go_back().await?;
+
+    Ok(())
+}
+```
+
+### Custom Actions
+
+```rust
+use browsing::tools::views::{ActionHandler, ActionParams, ActionContext, ActionResult};
+use browsing::agent::views::ActionModel;
+use browsing::error::Result;
+
+struct CustomActionHandler;
+
+#[async_trait::async_trait]
+impl ActionHandler for CustomActionHandler {
+    async fn execute(
+        &self,
+        params: &ActionParams<'_>,
+        context: &mut ActionContext<'_>,
+    ) -> Result<ActionResult> {
+        // Custom action logic here
+        Ok(ActionResult {
+            extracted_content: Some("Custom result".to_string()),
+            ..Default::default()
+        })
+    }
+}
+
+// Register custom action
+agent.tools.register_custom_action(
+    "custom_action".to_string(),
+    "Description of custom action".to_string(),
+    None,  // domains
+    CustomActionHandler,
+);
+```
+
+## 🏗️ Architecture
+
+Browsing follows **SOLID principles** with a focus on separation of concerns, testability, and maintainability.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Agent                               │
+│  ┌─────────────┬──────────────┬──────────────┬─────────┐  │
+│  │   Browser   │ DOMProcessor │     LLM      │  Tools  │  │
+│  │   (trait)   │    (trait)   │  (trait)     │         │  │
+│  └──────┬──────┴──────┬───────┴──────┬───────┴────┬────┘  │
+│         │             │              │            │       │
+└─────────┼─────────────┼──────────────┼────────────┼───────┘
+          │             │              │            │
+    ┌─────▼──────┐ ┌───▼────┐   ┌────▼───┐  ┌────▼─────┐
+    │  Browser   │ │DomSvc  │   │  LLM   │  │ Handlers │
+    │            │ │        │   │        │  │          │
+    │TabManager  │ │CDP     │   │Chat    │  │Navigation│
+    │NavManager  │ │HTML    │   │Model   │  │Interaction│
+    │Screenshot  │ │Tree    │   │        │  │Tabs      │
+    │            │ │Builder │   │        │  │Content   │
+    └────────────┘ └────────┘   └────────┘  └──────────┘
+```
+
+### Key Components
+
+| Component | Responsibility | Trait-Based |
+|-----------|---------------|-------------|
+| **Agent** | Orchestrates browser, LLM, and DOM processing | Uses `BrowserClient`, `DOMProcessor` |
+| **Browser** | Manages browser session and lifecycle | Implements `BrowserClient` |
+| **DOMProcessor** | Extracts and serializes DOM | Implements `DOMProcessor` |
+| **Tools** | Action registry and execution | Uses `BrowserClient` trait |
+| **Handlers** | Specific action implementations | Use `ActionHandler` trait |
+
+## 📁 Project Structure
+
+```
+browsing/
+├── src/
+│   ├── agent/              # Agent orchestration
+│   │   ├── service.rs      # Main agent implementation
+│   │   └── json_extractor.rs # JSON parsing utilities
+│   ├── browser/            # Browser management
+│   │   ├── session.rs      # Browser session (BrowserClient impl)
+│   │   ├── tab_manager.rs  # Tab operations
+│   │   ├── navigation.rs   # Navigation operations
+│   │   ├── screenshot.rs   # Screenshot operations
+│   │   ├── cdp.rs          # CDP WebSocket client
+│   │   ├── launcher.rs     # Browser launcher
+│   │   └── profile.rs      # Browser configuration
+│   ├── dom/                # DOM processing
+│   │   ├── processor.rs    # DOMProcessor trait impl
+│   │   ├── serializer.rs   # LLM-ready serialization
+│   │   ├── tree_builder.rs # DOM tree construction
+│   │   ├── cdp_client.rs   # CDP wrapper for DOM
+│   │   └── html_converter.rs # HTML to markdown
+│   ├── tools/              # Action system
+│   │   ├── service.rs      # Tools registry
+│   │   ├── handlers/       # Action handlers
+│   │   │   ├── navigation.rs
+│   │   │   ├── interaction.rs
+│   │   │   ├── tabs.rs
+│   │   │   ├── content.rs
+│   │   │   └── advanced.rs
+│   │   └── params.rs       # Parameter extraction
+│   ├── traits/             # Core trait abstractions
+│   │   ├── browser_client.rs  # BrowserClient trait
+│   │   └── dom_processor.rs   # DOMProcessor trait
+│   ├── llm/                # LLM integration
+│   │   └── base.rs         # ChatModel trait
+│   ├── actor/              # Low-level interactions
+│   │   ├── page.rs         # Page operations
+│   │   ├── element.rs      # Element operations
+│   │   └── mouse.rs        # Mouse interactions
+│   ├── config/             # Configuration
+│   ├── error/              # Error types
+│   └── utils/              # Utilities
+└── Cargo.toml
+```
+
+## 🎨 Design Principles
+
+### Trait-Facing Design
+- **BrowserClient** - Abstract browser operations for testing and alternative backends
+- **DOMProcessor** - Pluggable DOM processing implementations
+- **ActionHandler** - Extensible action system
+- **ChatModel** - LLM provider abstraction
+
+### Separation of Concerns
+- **TabManager** - Tab operations (create, switch, close)
+- **NavigationManager** - Navigation logic
+- **ScreenshotManager** - Screenshot capture
+- **Handlers** - Focused action implementations
+
+### DRY (Don't Repeat Yourself)
+- **ActionParams** - Reusable parameter extraction
+- **JSONExtractor** - Centralized JSON parsing
+- **SessionGuard** - Unified session access
+
+### KISS (Keep It Simple, Stupid)
+- Split complex methods into focused helpers
+- Clear naming and single responsibility
+- Minimal dependencies between modules
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run specific test
+cargo test test_agent_workflow
+
+# Run integration tests only
+cargo test --test integration
+```
+
+### Test Coverage
+- **74+ tests** across all modules
+- **24 integration tests** for full workflow
+- **50+ unit tests** for individual components
+- **Mock LLM** for deterministic testing
+- **Trait-based mocking** for browser/DOM components
+
+## 🔧 Configuration
+
+### Browser Profile
+
+```rust
+use browsing::BrowserProfile;
+
+let profile = BrowserProfile {
+    headless: true,
+    browser_type: browsing::BrowserType::Chrome,
+    user_data_dir: None,
+    disable_gpu: true,
+    ..Default::default()
+};
+```
+
+### Agent Settings
+
+```rust
+use browsing::agent::views::AgentSettings;
+
+let agent = Agent::new(...)
+    .with_max_steps(50)
+    .with_settings(AgentSettings {
+        override_system_message: Some("Custom system prompt".to_string()),
+        ..Default::default()
+    });
+```
+
+## 📖 API Documentation
+
+Generate and view API docs:
+
+```bash
+cargo doc --open
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! The codebase follows these principles:
+
+1. **Trait-based abstractions** - Use traits for extensibility
+2. **Separation of concerns** - Keep modules focused
+3. **DRY** - Extract common patterns
+4. **KISS** - Keep implementations simple
+5. **Test coverage** - Add tests for new features
+
+See [TODO.md](TODO.md) for planned enhancements and [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🙏 Acknowledgments
+
+Inspired by [browser-use](https://github.com/browser-use/browser-use) - Python implementation of autonomous web browsing for AI agents.
+
+---
+
+**Made with ❤️ for AI agents that need to browse the web**

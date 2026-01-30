@@ -1,6 +1,6 @@
 //! Chrome DevTools Protocol (CDP) client implementation
 
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -33,7 +33,7 @@ impl CdpClient {
     pub async fn start(&mut self) -> Result<()> {
         let (ws_stream, _) = connect_async(&self.url)
             .await
-            .map_err(|e| BrowserUseError::Cdp(format!("Failed to connect to CDP: {e}")))?;
+            .map_err(|e| BrowsingError::Cdp(format!("Failed to connect to CDP: {e}")))?;
 
         let (mut write, mut read) = ws_stream.split();
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -114,18 +114,18 @@ impl CdpClient {
         if let Some(sender) = self.sender.lock().await.as_ref() {
             sender
                 .send(Message::Text(request.to_string()))
-                .map_err(|e| BrowserUseError::Cdp(format!("Failed to send command: {e}")))?;
+                .map_err(|e| BrowsingError::Cdp(format!("Failed to send command: {e}")))?;
         }
 
         // Wait for response
         if let Some(response) = rx.recv().await {
             if let Some(error) = response.get("error") {
-                return Err(BrowserUseError::Cdp(format!("CDP error: {error}")));
+                return Err(BrowsingError::Cdp(format!("CDP error: {error}")));
             }
             return Ok(response["result"].clone());
         }
 
-        Err(BrowserUseError::Cdp("No response received".to_string()))
+        Err(BrowsingError::Cdp("No response received".to_string()))
     }
 
     /// Stop the CDP client and close the WebSocket connection
@@ -169,7 +169,7 @@ impl CdpSession {
 
         let session_id = result["sessionId"]
             .as_str()
-            .ok_or_else(|| BrowserUseError::Cdp("No sessionId in response".to_string()))?
+            .ok_or_else(|| BrowsingError::Cdp("No sessionId in response".to_string()))?
             .to_string();
 
         // Enable domains

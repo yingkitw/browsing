@@ -2,7 +2,7 @@
 
 use super::Handler;
 use crate::agent::views::ActionResult;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use tracing::info;
@@ -16,7 +16,7 @@ impl Handler for InteractionHandler {
             "click" => self.click(params, context).await,
             "input" => self.input(params, context).await,
             "send_keys" => self.send_keys(params, context).await,
-            _ => Err(BrowserUseError::Tool("Unknown interaction action".into())),
+            _ => Err(BrowsingError::Tool("Unknown interaction action".into())),
         }
     }
 }

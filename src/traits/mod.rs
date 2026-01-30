@@ -1,7 +1,7 @@
-//! Core trait abstractions for browser-use-rs
+//! Core trait abstractions for browsing-rs
 //!
 //! This module defines the key traits that enable polymorphism and testability
-//! throughout the browser-use codebase.
+//! throughout the browsing codebase.
 
 mod browser_client;
 mod dom_processor;

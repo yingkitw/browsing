@@ -1,20 +1,23 @@
 //! Browser session management using CDP
 
 use crate::browser::cdp::{CdpClient, CdpSession};
+use crate::browser::navigation::NavigationManager;
 use crate::browser::profile::BrowserProfile;
-use crate::error::{BrowserUseError, Result};
+use crate::browser::screenshot::ScreenshotManager;
+use crate::browser::tab_manager::TabManager;
+use crate::error::{BrowsingError, Result};
 use crate::traits::BrowserClient;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Browser session for managing CDP connections
 pub struct Browser {
     profile: BrowserProfile,
-    cdp_client: Option<CdpClient>,
+    cdp_client: Option<Arc<CdpClient>>,
     cdp_url: Option<String>,
-    sessions: HashMap<String, CdpSession>,
-    current_target_id: Option<String>,
+    tab_manager: TabManager,
+    navigation_manager: NavigationManager,
+    screenshot_manager: ScreenshotManager,
     launcher: Option<crate::browser::launcher::BrowserLauncher>,
 }
 
@@ -25,8 +28,9 @@ impl Browser {
             profile,
             cdp_client: None,
             cdp_url: None,
-            sessions: HashMap::new(),
-            current_target_id: None,
+            tab_manager: TabManager::new(),
+            navigation_manager: NavigationManager::new(),
+            screenshot_manager: ScreenshotManager::new(),
             launcher: None,
         }
     }
@@ -44,6 +48,7 @@ impl Browser {
             let mut client = CdpClient::new(cdp_url.clone());
             client.start().await?;
             let client_arc = Arc::new(client);
+            self.cdp_client = Some(Arc::clone(&client_arc));
 
             // Get available targets
             let targets = client_arc
@@ -59,14 +64,11 @@ impl Browser {
                             None,
                         )
                         .await?;
-                        self.current_target_id = Some(target_id.to_string());
-                        self.sessions.insert(target_id.to_string(), session);
+                        self.tab_manager.set_current_target_id(target_id.to_string());
+                        self.tab_manager.insert_session(target_id.to_string(), session);
                     }
                 }
             }
-
-            // Store client reference (we'll need to handle this differently)
-            // For now, we'll keep it in sessions
         } else {
             // Launch browser locally
             use crate::browser::launcher::BrowserLauncher;
@@ -84,6 +86,7 @@ impl Browser {
             let mut client = CdpClient::new(cdp_url);
             client.start().await?;
             let client_arc = Arc::new(client);
+            self.cdp_client = Some(Arc::clone(&client_arc));
 
             // Get available targets
             let targets = client_arc
@@ -99,8 +102,8 @@ impl Browser {
                             None,
                         )
                         .await?;
-                        self.current_target_id = Some(target_id.to_string());
-                        self.sessions.insert(target_id.to_string(), session);
+                        self.tab_manager.set_current_target_id(target_id.to_string());
+                        self.tab_manager.insert_session(target_id.to_string(), session);
                     }
                 }
             }
@@ -111,26 +114,18 @@ impl Browser {
 
     /// Navigate to the specified URL
     pub async fn navigate(&mut self, url: &str) -> Result<()> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
-                let params = serde_json::json!({
-                    "url": url
-                });
-                session.client.send_command("Page.navigate", params).await?;
-                return Ok(());
-            }
-        }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        let page = self.get_page()?;
+        self.navigation_manager.navigate(&page, url).await
     }
 
     /// Get the current page URL
     pub async fn get_current_url(&self) -> Result<String> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
+        if let Some(target_id) = self.tab_manager.current_target_id() {
+            if let Some(session) = self.tab_manager.get_session(target_id) {
                 return Ok(session.url.clone());
             }
         }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        Err(BrowsingError::Browser("No active session".to_string()))
     }
 
     /// Stop the browser session and clean up resources
@@ -140,8 +135,8 @@ impl Browser {
             launcher.stop().await?;
         }
 
-        // Close all sessions
-        self.sessions.clear();
+        // Clear managers
+        self.tab_manager = TabManager::new();
         self.cdp_client = None;
         self.launcher = None;
         Ok(())
@@ -149,22 +144,22 @@ impl Browser {
 
     /// Get the CDP client for the current session
     pub fn get_cdp_client(&self) -> Result<std::sync::Arc<crate::browser::cdp::CdpClient>> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
+        if let Some(target_id) = self.tab_manager.current_target_id() {
+            if let Some(session) = self.tab_manager.get_session(target_id) {
                 return Ok(Arc::clone(&session.client));
             }
         }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        Err(BrowsingError::Browser("No active session".to_string()))
     }
 
     /// Get the session ID for the current target
     pub fn get_session_id(&self) -> Result<String> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
+        if let Some(target_id) = self.tab_manager.current_target_id() {
+            if let Some(session) = self.tab_manager.get_session(target_id) {
                 return Ok(session.session_id.clone());
             }
         }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        Err(BrowsingError::Browser("No active session".to_string()))
     }
 
     /// Get a Page actor for the current session
@@ -176,9 +171,10 @@ impl Browser {
 
     /// Get the current target ID
     pub fn get_current_target_id(&self) -> Result<String> {
-        self.current_target_id
-            .clone()
-            .ok_or_else(|| BrowserUseError::Browser("No current target ID".to_string()))
+        self.tab_manager
+            .current_target_id()
+            .map(|id| id.to_string())
+            .ok_or_else(|| BrowsingError::Browser("No current target ID".to_string()))
     }
 
     /// Take a screenshot of the current page
@@ -189,194 +185,34 @@ impl Browser {
         format: Option<&str>,
         quality: Option<u32>,
     ) -> Result<Vec<u8>> {
-        use base64::Engine;
-        use base64::engine::general_purpose;
-
         let page = self.get_page()?;
-
-        // Use Page's screenshot method with full_page option (returns base64 string)
-        let data_b64 = page
-            .screenshot_with_options(format, quality, full_page, None)
-            .await?;
-
-        // Decode base64
-        let screenshot_data = general_purpose::STANDARD
-            .decode(&data_b64)
-            .map_err(|e| BrowserUseError::Browser(format!("Failed to decode screenshot: {e}")))?;
-
-        // Save to file if path provided
-        if let Some(file_path) = path {
-            tokio::fs::write(file_path, &screenshot_data)
-                .await
-                .map_err(|e| {
-                    BrowserUseError::Browser(format!("Failed to save screenshot: {e}"))
-                })?;
-        }
-
-        Ok(screenshot_data)
+        self.screenshot_manager
+            .take_screenshot(&page, path, full_page, format, quality)
+            .await
     }
 
     /// Get all open tabs
     pub async fn get_tabs(&self) -> Result<Vec<crate::browser::views::TabInfo>> {
         let client = self.get_cdp_client()?;
-
-        // Get all targets
-        let targets = client
-            .send_command("Target.getTargets", serde_json::json!({}))
-            .await?;
-
-        let target_infos = targets
-            .get("targetInfos")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| BrowserUseError::Browser("No targetInfos in response".to_string()))?;
-
-        let mut tabs = Vec::new();
-
-        for target_info in target_infos {
-            let target_type = target_info
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-
-            // Only include page/tab targets, not iframes or workers
-            if target_type != "page" && target_type != "tab" {
-                continue;
-            }
-
-            let target_id = target_info
-                .get("targetId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            let url = target_info
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            // Try to get title from target info
-            let title = target_info
-                .get("title")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            tabs.push(crate::browser::views::TabInfo {
-                url,
-                title: if title.is_empty() {
-                    "Unknown".to_string()
-                } else {
-                    title
-                },
-                target_id,
-                parent_target_id: None,
-            });
-        }
-
-        Ok(tabs)
+        self.tab_manager.get_tabs(&client).await
     }
 
     /// Create a new tab
     pub async fn create_new_tab(&mut self, url: Option<&str>) -> Result<String> {
         let client = self.get_cdp_client()?;
-
-        let target_url = url.unwrap_or("about:blank");
-
-        let params = serde_json::json!({
-            "url": target_url
-        });
-
-        let result = client.send_command("Target.createTarget", params).await?;
-
-        let target_id = result
-            .get("targetId")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                BrowserUseError::Browser("No targetId in createTarget response".to_string())
-            })?
-            .to_string();
-
-        // Wait a bit for the target to be ready
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // Create session for the new target
-        let session = CdpSession::for_target(client, target_id.clone(), None).await?;
-
-        // Add to sessions map
-        self.sessions.insert(target_id.clone(), session);
-
-        Ok(target_id)
+        self.tab_manager.create_tab(&client, url).await
     }
 
     /// Switch to a different tab by target ID
     pub async fn switch_to_tab(&mut self, target_id: &str) -> Result<()> {
         let client = self.get_cdp_client()?;
-
-        // Verify target exists
-        let targets = client
-            .send_command("Target.getTargets", serde_json::json!({}))
-            .await?;
-
-        let target_exists = targets
-            .get("targetInfos")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter().any(|t| {
-                    t.get("targetId")
-                        .and_then(|v| v.as_str())
-                        .map(|id| id == target_id)
-                        .unwrap_or(false)
-                })
-            })
-            .unwrap_or(false);
-
-        if !target_exists {
-            return Err(BrowserUseError::Browser(format!(
-                "Target {target_id} not found"
-            )));
-        }
-
-        // Create or get session for this target
-        let session = CdpSession::for_target(client, target_id.to_string(), None).await?;
-
-        // Update current target
-        self.current_target_id = Some(target_id.to_string());
-        self.sessions.insert(target_id.to_string(), session);
-
-        Ok(())
+        self.tab_manager.switch_to_tab(&client, target_id).await
     }
 
     /// Close a tab by target ID
     pub async fn close_tab(&mut self, target_id: &str) -> Result<()> {
         let client = self.get_cdp_client()?;
-
-        let params = serde_json::json!({
-            "targetId": target_id
-        });
-
-        client.send_command("Target.closeTarget", params).await?;
-
-        // Remove from sessions
-        self.sessions.remove(target_id);
-
-        // If this was the current target, switch to another one
-        if self
-            .current_target_id
-            .as_ref()
-            .map(|id| id == target_id)
-            .unwrap_or(false)
-        {
-            // Get remaining tabs
-            let tabs = self.get_tabs().await?;
-            if let Some(first_tab) = tabs.first() {
-                self.current_target_id = Some(first_tab.target_id.clone());
-            } else {
-                self.current_target_id = None;
-            }
-        }
-
-        Ok(())
+        self.tab_manager.close_tab(&client, target_id).await
     }
 
     /// Get target ID from short tab ID (last 4 characters)
@@ -390,7 +226,7 @@ impl Browser {
             }
         }
 
-        Err(BrowserUseError::Browser(format!(
+        Err(BrowsingError::Browser(format!(
             "No target ID found ending with {tab_id}"
         )))
     }
@@ -486,110 +322,49 @@ impl Browser {
     }
 }
 
-// NOTE: This is a basic implementation of BrowserClient for Browser.
-// PR7 will expand and refine this implementation with proper delegation to managers.
-// For now, we inline the critical logic to avoid method name conflicts.
+// BrowserClient trait implementation with proper delegation to managers
 #[async_trait]
 impl BrowserClient for Browser {
+    async fn start(&mut self) -> Result<()> {
+        self.start().await
+    }
+
     async fn navigate(&mut self, url: &str) -> Result<()> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
-                let params = serde_json::json!({ "url": url });
-                session.client.send_command("Page.navigate", params).await?;
-                return Ok(());
-            }
-        }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        let page = self.get_page()?;
+        self.navigation_manager.navigate(&page, url).await
     }
 
     async fn go_back(&mut self) -> Result<()> {
-        let client = self.get_cdp_client()?;
-        let session_id = self.get_session_id()?;
-        let page = crate::actor::Page::new(client, session_id);
-        page.go_back().await
+        let page = self.get_page()?;
+        self.navigation_manager.go_back(&page).await
     }
 
     async fn get_current_url(&self) -> Result<String> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
-                return Ok(session.url.clone());
-            }
-        }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        self.get_current_url().await
     }
 
     async fn create_tab(&mut self, url: Option<&str>) -> Result<String> {
         let client = self.get_cdp_client()?;
-        let target_url = url.unwrap_or("about:blank");
-        let params = serde_json::json!({ "url": target_url });
-        let result = client.send_command("Target.createTarget", params).await?;
-        let target_id = result
-            .get("targetId")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Browser("No targetId in createTarget response".to_string()))?
-            .to_string();
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        let session = CdpSession::for_target(client, target_id.clone(), None).await?;
-        self.sessions.insert(target_id.clone(), session);
-        Ok(target_id)
+        self.tab_manager.create_tab(&client, url).await
     }
 
     async fn switch_to_tab(&mut self, target_id: &str) -> Result<()> {
         let client = self.get_cdp_client()?;
-        let targets = client.send_command("Target.getTargets", serde_json::json!({})).await?;
-        let target_exists = targets
-            .get("targetInfos")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter().any(|t| {
-                    t.get("targetId")
-                        .and_then(|v| v.as_str())
-                        .map(|id| id == target_id)
-                        .unwrap_or(false)
-                })
-            })
-            .unwrap_or(false);
-        if !target_exists {
-            return Err(BrowserUseError::Browser(format!("Target {} not found", target_id)));
-        }
-        let session = CdpSession::for_target(client, target_id.to_string(), None).await?;
-        self.current_target_id = Some(target_id.to_string());
-        self.sessions.insert(target_id.to_string(), session);
-        Ok(())
+        self.tab_manager.switch_to_tab(&client, target_id).await
     }
 
     async fn close_tab(&mut self, target_id: &str) -> Result<()> {
         let client = self.get_cdp_client()?;
-        let params = serde_json::json!({ "targetId": target_id });
-        client.send_command("Target.closeTarget", params).await?;
-        self.sessions.remove(target_id);
-        if self.current_target_id.as_ref().map(|id| id == target_id).unwrap_or(false) {
-            self.current_target_id = None;
-        }
-        Ok(())
+        self.tab_manager.close_tab(&client, target_id).await
     }
 
     async fn get_tabs(&self) -> Result<Vec<crate::browser::views::TabInfo>> {
         let client = self.get_cdp_client()?;
-        let targets = client.send_command("Target.getTargets", serde_json::json!({})).await?;
-        let target_infos = targets
-            .get("targetInfos")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| BrowserUseError::Browser("No targetInfos in response".to_string()))?;
-        let mut tabs = Vec::new();
-        for target_info in target_infos {
-            let target_type = target_info.get("type").and_then(|v| v.as_str()).unwrap_or("");
-            if target_type != "page" && target_type != "tab" {
-                continue;
-            }
-            tabs.push(crate::browser::views::TabInfo {
-                url: target_info.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                title: target_info.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                target_id: target_info.get("targetId").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                parent_target_id: None,
-            });
-        }
-        Ok(tabs)
+        self.tab_manager.get_tabs(&client).await
+    }
+
+    async fn get_target_id_from_tab_id(&self, tab_id: &str) -> Result<String> {
+        self.get_target_id_from_tab_id(tab_id).await
     }
 
     fn get_page(&self) -> Result<crate::actor::Page> {
@@ -599,55 +374,23 @@ impl BrowserClient for Browser {
     }
 
     async fn take_screenshot(&self, path: Option<&str>, full_page: bool) -> Result<Vec<u8>> {
-        use base64::Engine;
-        use base64::engine::general_purpose;
         let page = self.get_page()?;
-        let data_b64 = page.screenshot_with_options(None, None, full_page, None).await?;
-        let screenshot_data = general_purpose::STANDARD
-            .decode(&data_b64)
-            .map_err(|e| BrowserUseError::Browser(format!("Failed to decode screenshot: {}", e)))?;
-        if let Some(file_path) = path {
-            tokio::fs::write(file_path, &screenshot_data)
-                .await
-                .map_err(|e| BrowserUseError::Browser(format!("Failed to save screenshot: {}", e)))?;
-        }
-        Ok(screenshot_data)
+        self.screenshot_manager.take_screenshot(&page, path, full_page, None, None).await
     }
 
     async fn get_current_page_title(&self) -> Result<String> {
-        let client = self.get_cdp_client()?;
-        let target_id = self.get_current_target_id()?;
-        let params = serde_json::json!({ "targetId": target_id });
-        let target_info = client.send_command("Target.getTargetInfo", params).await?;
-        Ok(target_info
-            .get("targetInfo")
-            .and_then(|v| v.get("title"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown")
-            .to_string())
+        self.get_current_page_title().await
     }
 
     fn get_cdp_client(&self) -> Result<Arc<CdpClient>> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
-                return Ok(Arc::clone(&session.client));
-            }
-        }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        self.get_cdp_client()
     }
 
     fn get_session_id(&self) -> Result<String> {
-        if let Some(ref target_id) = self.current_target_id {
-            if let Some(session) = self.sessions.get(target_id) {
-                return Ok(session.session_id.clone());
-            }
-        }
-        Err(BrowserUseError::Browser("No active session".to_string()))
+        self.get_session_id()
     }
 
     fn get_current_target_id(&self) -> Result<String> {
-        self.current_target_id
-            .clone()
-            .ok_or_else(|| BrowserUseError::Browser("No current target ID".to_string()))
+        self.get_current_target_id()
     }
 }

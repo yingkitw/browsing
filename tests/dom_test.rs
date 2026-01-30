@@ -1,6 +1,6 @@
 //! Tests for DOM service functionality
 
-use browser_use::dom::views::{EnhancedDOMTreeNode, NodeType, SerializedDOMState};
+use browsing::dom::views::{EnhancedDOMTreeNode, NodeType, SerializedDOMState};
 use std::collections::HashMap;
 
 #[test]

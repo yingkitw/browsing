@@ -1,7 +1,7 @@
 //! Tests for agent service functionality
 
-use browser_use::agent::views::{ActionResult, AgentHistoryList, AgentState};
-use browser_use::tokens::views::UsageSummary;
+use browsing::agent::views::{ActionResult, AgentHistoryList, AgentState};
+use browsing::tokens::views::UsageSummary;
 
 #[test]
 fn test_action_result_creation() {

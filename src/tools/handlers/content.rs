@@ -2,7 +2,7 @@
 
 use super::Handler;
 use crate::agent::views::ActionResult;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use serde_json::json;
@@ -18,7 +18,7 @@ impl Handler for ContentHandler {
             "find_text" => self.find_text(params, context).await,
             "dropdown_options" => self.dropdown_options(params, context).await,
             "select_dropdown" => self.select_dropdown(params, context).await,
-            _ => Err(BrowserUseError::Tool("Unknown content action".into())),
+            _ => Err(BrowsingError::Tool("Unknown content action".into())),
         }
     }
 }
@@ -93,11 +93,11 @@ impl ContentHandler {
     async fn dropdown_options(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
         let index = params.get_required_u32("index")?;
         let element = context.selector_map.and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {} not found", index)))?;
 
         let page = context.browser.get_page()?;
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index))
+            BrowsingError::Tool(format!("Element index {} has no backend_node_id", index))
         })?;
 
         let script = format!(
@@ -148,11 +148,11 @@ impl ContentHandler {
         let text = params.get_required_str("text")?;
 
         let element = context.selector_map.and_then(|map| map.get(&index))
-            .ok_or_else(|| BrowserUseError::Tool(format!("Element index {} not found", index)))?;
+            .ok_or_else(|| BrowsingError::Tool(format!("Element index {} not found", index)))?;
 
         let page = context.browser.get_page()?;
         let backend_node_id = element.backend_node_id.ok_or_else(|| {
-            BrowserUseError::Tool(format!("Element index {} has no backend_node_id", index))
+            BrowsingError::Tool(format!("Element index {} has no backend_node_id", index))
         })?;
 
         let script = format!(
@@ -195,7 +195,7 @@ impl ContentHandler {
             })
         } else {
             let error = result_obj.get("error").and_then(|v| v.as_str()).unwrap_or("Failed to select dropdown option");
-            Err(BrowserUseError::Tool(error.to_string()))
+            Err(BrowsingError::Tool(error.to_string()))
         }
     }
 }

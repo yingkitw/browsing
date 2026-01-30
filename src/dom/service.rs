@@ -7,7 +7,7 @@ use crate::dom::views::{
     DOMRect, EnhancedAXNode, EnhancedAXProperty, EnhancedDOMTreeNode, EnhancedSnapshotNode,
     NodeType, SerializedDOMState,
 };
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use futures::future::try_join4;
 use regex::Regex;
 use serde_json::Value;
@@ -129,7 +129,7 @@ impl DomService {
         let client = self
             .cdp_client
             .as_ref()
-            .ok_or_else(|| BrowserUseError::Dom("No CDP client available".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No CDP client available".to_string()))?;
         let session_id = self.session_id.as_deref();
 
         // Required computed styles for snapshot
@@ -188,7 +188,7 @@ impl DomService {
             try_join4(snapshot_fut, dom_tree_fut, ax_tree_fut, viewport_fut),
         )
         .await
-        .map_err(|_| BrowserUseError::Dom("Timeout waiting for CDP responses".to_string()))??;
+        .map_err(|_| BrowsingError::Dom("Timeout waiting for CDP responses".to_string()))??;
 
         let (snapshot_result, dom_tree_result, ax_tree_result, device_pixel_ratio) = result;
 
@@ -205,7 +205,7 @@ impl DomService {
         let client = self
             .cdp_client
             .as_ref()
-            .ok_or_else(|| BrowserUseError::Dom("No CDP client available".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No CDP client available".to_string()))?;
         let session_id = self.session_id.as_deref();
 
         // Get layout metrics
@@ -307,7 +307,7 @@ impl DomService {
         } else if let Some(ref browser) = self.browser {
             browser.get_current_target_id()?
         } else {
-            return Err(BrowserUseError::Dom(
+            return Err(BrowsingError::Dom(
                 "Target ID required for DOM tree extraction".to_string(),
             ));
         };
@@ -340,7 +340,7 @@ impl DomService {
         // Get root node from DOM tree
         let root_node = dom_tree
             .get("root")
-            .ok_or_else(|| BrowserUseError::Dom("No root node in DOM tree".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No root node in DOM tree".to_string()))?;
 
         // Recursively construct enhanced nodes
         let enhanced_root = self._construct_enhanced_node(
@@ -370,7 +370,7 @@ impl DomService {
         let node_id = node
             .get("nodeId")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Dom("No nodeId in node".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No nodeId in node".to_string()))?;
 
         // Check memoization
         if let Some(existing) = node_lookup.get(&node_id) {
@@ -380,7 +380,7 @@ impl DomService {
         let backend_node_id = node
             .get("backendNodeId")
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Dom("No backendNodeId in node".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No backendNodeId in node".to_string()))?;
 
         // Get AX node
         let ax_node = ax_tree_lookup

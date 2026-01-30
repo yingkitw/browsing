@@ -2,7 +2,7 @@
 
 use crate::actor::{Element, Mouse, get_key_info};
 use crate::browser::cdp::CdpClient;
-use crate::error::{BrowserUseError, Result};
+use crate::error::{BrowsingError, Result};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -92,7 +92,7 @@ impl Page {
             .get("root")
             .and_then(|v| v.get("nodeId"))
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| BrowserUseError::Dom("No root node found".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No root node found".to_string()))?;
 
         // Query selector
         let query_params = json!({
@@ -107,7 +107,7 @@ impl Page {
         let node_ids = query_result
             .get("nodeIds")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| BrowserUseError::Dom("No nodeIds in query result".to_string()))?;
+            .ok_or_else(|| BrowsingError::Dom("No nodeIds in query result".to_string()))?;
 
         let mut elements = Vec::new();
         for node_id_value in node_ids {
@@ -149,7 +149,7 @@ impl Page {
         let result = self.client.send_command("Runtime.evaluate", params).await?;
 
         if let Some(exception) = result.get("exceptionDetails") {
-            return Err(BrowserUseError::Dom(format!(
+            return Err(BrowsingError::Dom(format!(
                 "JavaScript evaluation failed: {exception}"
             )));
         }
@@ -207,7 +207,7 @@ impl Page {
         let data = result
             .get("data")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowserUseError::Browser("No screenshot data".to_string()))?;
+            .ok_or_else(|| BrowsingError::Browser("No screenshot data".to_string()))?;
 
         Ok(data.to_string())
     }

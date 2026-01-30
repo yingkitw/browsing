@@ -16,6 +16,9 @@ use std::sync::Arc;
 /// abstracting over concrete browser implementations.
 #[async_trait]
 pub trait BrowserClient: Send + Sync {
+    /// Start the browser session
+    async fn start(&mut self) -> Result<()>;
+
     /// Navigate to the specified URL
     async fn navigate(&mut self, url: &str) -> Result<()>;
 
@@ -36,6 +39,9 @@ pub trait BrowserClient: Send + Sync {
 
     /// Get all open tabs
     async fn get_tabs(&self) -> Result<Vec<TabInfo>>;
+
+    /// Get target ID from short tab ID (last 4 characters)
+    async fn get_target_id_from_tab_id(&self, tab_id: &str) -> Result<String>;
 
     /// Get a Page actor for the current session
     fn get_page(&self) -> Result<Page>;
