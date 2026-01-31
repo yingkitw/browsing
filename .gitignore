@@ -68,3 +68,11 @@ Desktop.ini
 screenshots/
 downloads/
 
+# Demo/example output files
+*_content.txt
+*_content.html
+*_content.json
+screenshot_example.png
+screenshot_example.*
+demo_screenshot.*
+

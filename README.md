@@ -2,7 +2,13 @@
 
 **Autonomous web browsing for AI agents - Rust implementation**
 
-Browsing is a powerful Rust library that enables AI agents to autonomously interact with web pages. It provides a clean, trait-based architecture for browser automation, DOM extraction, and LLM-driven web interactions.
+Browsing is a powerful Rust library that enables AI agents to autonomously interact with web pages. Available as a **CLI tool**, **MCP server**, and **Rust library**, it provides a clean, trait-based architecture for browser automation, DOM extraction, and LLM-driven web interactions.
+
+## 🎯 Three Ways to Use Browsing
+
+1. **📦 Library** - Integrate into your Rust applications
+2. **⌨️ CLI** - Command-line tool for autonomous browsing tasks
+3. **🔌 MCP Server** - Model Context Protocol server for AI assistants (Claude, GPT-4, etc.)
 
 ## ✨ Why Browsing?
 
@@ -46,78 +52,94 @@ Building AI agents that can navigate and interact with websites is challenging. 
 - Manager-based architecture (TabManager, NavigationManager, ScreenshotManager)
 - Custom action registration
 - Utility traits for reduced code duplication
-- Comprehensive test coverage (74+ tests)
+- Comprehensive test coverage (200+ tests)
 
 ## 📦 Installation
 
-```bash
-# Add to Cargo.toml
+### As a Library
+
+```toml
 [dependencies]
 browsing = "0.1"
+tokio = { version = "1.40", features = ["full"] }
 ```
 
+### As a CLI Tool
+
 ```bash
-# Or clone from source
-git clone <repository>
-cd browsing-rs
-cargo build
+cargo install --path . --bin browsing
+```
+
+### As an MCP Server
+
+```bash
+cargo build --release --bin browsing-mcp
 ```
 
 ## 🚀 Quick Start
 
-### Basic Example
+### 1️⃣ CLI Usage
+
+```bash
+# Run an autonomous browsing task
+browsing run "Find the latest news about AI" --url https://news.ycombinator.com --headless
+
+# Launch a browser and get CDP URL
+browsing launch --headless
+
+# Connect to existing browser
+browsing connect ws://localhost:9222/devtools/browser/abc123
+```
+
+**📖 [Full CLI Documentation](docs/CLI_USAGE.md)**
+
+### 2️⃣ MCP Server Usage
+
+Configure in Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "browsing": {
+      "command": "/path/to/browsing/target/release/browsing-mcp",
+      "env": {
+        "BROWSER_USE_HEADLESS": "true"
+      }
+    }
+  }
+}
+```
+
+Then ask Claude:
+```
+"Navigate to example.com and click on the first link"
+```
+
+**📖 [Full MCP Documentation](docs/MCP_USAGE.md)**
+
+### 3️⃣ Library Usage
 
 ```rust
-use browsing::{Agent, Browser, BrowserProfile};
-use browsing::dom::DOMProcessorImpl;
-use browsing::llm::ChatModel;
-
-// Implement your own LLM by implementing the ChatModel trait
-struct MyLLM;
-
-#[async_trait::async_trait]
-impl ChatModel for MyLLM {
-    fn model(&self) -> &str { "my-model" }
-    fn provider(&self) -> &str { "my-provider" }
-    
-    async fn chat(&self, messages: &[ChatMessage]) -> Result<ChatInvokeCompletion<String>> {
-        // Your LLM implementation here
-        todo!()
-    }
-    
-    async fn chat_stream(&self, messages: &[ChatMessage]) 
-        -> Result<Box<dyn Stream<Item = Result<String>> + Send + Unpin>> {
-        // Your streaming implementation here
-        todo!()
-    }
-}
+use anyhow::Result;
+use browsing::{Browser, Config};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create browser profile
-    let profile = BrowserProfile::default();
-    let browser = Box::new(Browser::new(profile));
-
-    // 2. Create your LLM implementation
-    let llm = MyLLM;
-
-    // 3. Create DOM processor
-    let dom_processor = Box::new(DOMProcessorImpl::new());
-
-    // 4. Create and run agent
-    let mut agent = Agent::new(
-        "Find the top post on Hacker News".to_string(),
-        browser,
-        dom_processor,
-        llm,
-    );
-
-    let history = agent.run().await?;
-    println!("✅ Completed in {} steps", history.history.len());
-
+async fn main() -> Result<()> {
+    browsing::init();
+    
+    let config = Config::from_env();
+    let browser = Browser::launch(config.browser_profile).await?;
+    
+    browser.navigate("https://example.com").await?;
+    
+    let state = browser.get_browser_state_summary(true).await?;
+    println!("Title: {}", state.title);
+    
     Ok(())
 }
 ```
+
+**📖 [Full Library Documentation](docs/LIBRARY_USAGE.md)**
 
 ### Browser Launch Options
 
@@ -180,6 +202,45 @@ async fn test_agent_with_mock_browser() {
 ```
 
 ## 📚 Usage Examples
+
+### Content Download
+
+```rust
+use browsing::{Browser, BrowserProfile};
+use browsing::dom::DOMProcessorImpl;
+use browsing::traits::DOMProcessor;
+
+#[tokio::main]
+async fn main() -> browsing::error::Result<()> {
+    let mut browser = Browser::new(BrowserProfile::default());
+    browser.start().await?;
+
+    // Navigate to website
+    browser.navigate("https://www.ibm.com").await?;
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+    // Extract content
+    let cdp_client = browser.get_cdp_client()?;
+    let session_id = browser.get_session_id()?;
+    let target_id = browser.get_current_target_id()?;
+
+    let dom_processor = DOMProcessorImpl::new()
+        .with_cdp_client(cdp_client, session_id)
+        .with_target_id(target_id);
+
+    let page_content = dom_processor.get_page_state_string().await?;
+    println!("Extracted {} bytes of content", page_content.len());
+
+    // Save to file
+    std::fs::write("ibm_content.txt", page_content)?;
+    Ok(())
+}
+```
+
+**Run this example:**
+```bash
+cargo run --example ibm_content_download
+```
 
 ### Screenshot Capture
 
@@ -388,10 +449,18 @@ cargo test --test integration
 ```
 
 ### Test Coverage
-- **74+ tests** across all modules
-- **24 integration tests** for full workflow
-- **50+ unit tests** for individual components
-- **Mock LLM** for deterministic testing
+- **317 tests** across all modules (all passing)
+- **50+ integration tests** for full workflow
+- **150+ unit tests** for individual components
+- **Test files**:
+  - [actor_test.rs](tests/actor_test.rs) - Page, Element, Mouse, Keyboard operations (23 passed)
+  - [browser_managers_test.rs](tests/browser_managers_test.rs) - Navigation, Screenshot, Tab managers
+  - [tools_handlers_test.rs](tests/tools_handlers_test.rs) - All action handlers (49 passed)
+  - [agent_service_test.rs](tests/agent_service_test.rs) - Agent execution logic (32 passed)
+  - [agent_execution_test.rs](tests/agent_execution_test.rs) - Agent workflow tests (11 passed)
+  - [traits_test.rs](tests/traits_test.rs) - BrowserClient, DOMProcessor traits (24 passed)
+  - [utils_test.rs](tests/utils_test.rs) - URL extraction, signal handling (49 passed)
+- **Mock implementations** for deterministic testing
 - **Trait-based mocking** for browser/DOM components
 
 ## 🔧 Configuration

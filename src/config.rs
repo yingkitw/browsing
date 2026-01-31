@@ -115,7 +115,7 @@ impl Config {
     /// Loads configuration from a file
     pub fn load_from_file<P: AsRef<Path>>(
         path: P,
-    ) -> std::result::Result<Self, Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<Self> {
         if !path.as_ref().exists() {
             warn!("Config file not found, using defaults");
             return Ok(Self::from_env());

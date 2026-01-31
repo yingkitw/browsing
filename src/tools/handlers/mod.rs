@@ -22,6 +22,7 @@ use async_trait::async_trait;
 /// Base trait for action handlers
 #[async_trait]
 pub trait Handler: Send + Sync {
+    /// Handle an action with the given parameters and context
     async fn handle(
         &self,
         params: &ActionParams<'_>,

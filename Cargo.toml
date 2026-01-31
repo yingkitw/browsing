@@ -1,13 +1,30 @@
 [package]
 name = "browsing"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
 repository = "https://github.com/yingkitw/browsing"
-description = "Autonomous web browsing for AI agents - Rust implementation"
+description = "Autonomous web browsing for AI agents - Rust implementation with MCP support"
+keywords = ["ai", "agents", "web-browsing", "automation", "mcp"]
+documentation = "https://docs.rs/browsing"
+homepage = "https://github.com/yingkitw/browsing"
+
+[lib]
+name = "browsing"
+path = "src/lib.rs"
+
+[[bin]]
+name = "browsing"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "browsing-mcp"
+path = "src/bin/mcp_server.rs"
 
 [dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "env", "color"] }
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
 async-trait = "0.1"
@@ -50,7 +67,7 @@ pulldown-cmark = "0.10"
 tempfile = "3.8"
 
 # MCP
-rmcp = "0.1"
+rmcp = "0.14"
 
 # CDP client (WebSocket for CDP communication)
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
@@ -59,4 +76,16 @@ futures-util = "0.3"
 [lints.rust]
 unsafe_code = "warn"
 missing_docs = "warn"
+
+[[example]]
+name = "basic_navigation"
+path = "examples/basic_navigation.rs"
+
+[[example]]
+name = "comprehensive_showcase"
+path = "examples/comprehensive_showcase.rs"
+
+[[example]]
+name = "simple_navigation"
+path = "examples/simple_navigation.rs"
 

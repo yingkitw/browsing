@@ -22,7 +22,7 @@ impl JSONExtractor {
     /// Attempts multiple extraction strategies in order:
     /// 1. JSON in markdown code blocks with "```json" marker
     /// 2. JSON in generic markdown code blocks with "```" marker
-    /// 3. Standalone JSON object in the text
+    /// 3. Complete JSON object in the text using brace counting
     /// 4. Fallback to the original response if no JSON found
     pub fn extract_from_response(&self, response: &str) -> String {
         const PATTERNS: &[(&str, bool)] = &[
@@ -30,14 +30,17 @@ impl JSONExtractor {
             (r#"```json\s*([\s\S]*?)\s*```"#, true),   // ```json ... ```
             (r#"```\s*(\{[\s\S]*?\})\s*```"#, true),    // ```{...}```
             (r#"```\s*(\[[\s\S]*?\])\s*```"#, true),    // ```[...]```
-            (r#"(\{[^{}]*\}(?:\s*\{[^{}]*\})*)"#, false), // Simple JSON objects
-            (r#"(\[[^\[\]]*\](?:\s*\[[^\[\]]*\])*)"#, false), // Simple JSON arrays
         ];
 
         for (pattern, dotall) in PATTERNS {
             if let Some(json) = self.try_extract(response, pattern, *dotall) {
                 return json;
             }
+        }
+
+        // Try to extract a complete JSON object using brace counting
+        if let Some(json) = self.find_complete_json_object(response) {
+            return json;
         }
 
         // Fallback: return original response
@@ -72,15 +75,60 @@ impl JSONExtractor {
             || trimmed.starts_with('[') && trimmed.ends_with(']')
     }
 
-    /// Try to find a JSON object in the text
-    fn find_json_object(&self, text: &str) -> Option<String> {
-        if let Some(start) = text.find('{') {
-            if let Some(end) = text.rfind('}') {
-                if end > start {
-                    return Some(text[start..=end].to_string());
+    /// Try to find a complete JSON object in the text using brace counting
+    /// This handles nested objects and arrays correctly
+    fn find_complete_json_object(&self, text: &str) -> Option<String> {
+        let chars: Vec<char> = text.chars().collect();
+        let len = chars.len();
+
+        // Find the first opening brace
+        let mut start = None;
+        for (i, &c) in chars.iter().enumerate() {
+            if c == '{' {
+                start = Some(i);
+                break;
+            }
+        }
+
+        let start = start?;
+
+        // Count braces to find the matching closing brace
+        let mut brace_count = 0;
+        let mut in_string = false;
+        let mut escape_next = false;
+
+        for i in start..len {
+            let c = chars[i];
+
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+
+            if c == '\\' {
+                escape_next = true;
+                continue;
+            }
+
+            if c == '"' {
+                in_string = !in_string;
+                continue;
+            }
+
+            if !in_string {
+                if c == '{' {
+                    brace_count += 1;
+                } else if c == '}' {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        // Found the matching closing brace
+                        let json_str: String = chars[start..=i].iter().collect();
+                        return Some(json_str);
+                    }
                 }
             }
         }
+
         None
     }
 }
@@ -113,6 +161,15 @@ mod tests {
         let response = r#"The result is {"key": "value"}"#;
         let result = extractor.extract_from_response(response);
         assert!(result.contains("key"));
+    }
+
+    #[test]
+    fn test_extract_nested_json() {
+        let extractor = JSONExtractor::new();
+        let response = r#"Here's the result: {"action": [{"type": "navigate", "params": {"url": "https://example.com"}}]}"#;
+        let result = extractor.extract_from_response(response);
+        assert!(result.contains("action"));
+        assert!(result.contains("navigate"));
     }
 
     #[test]

@@ -3,7 +3,7 @@
 //! This module handles navigation operations like going forward/back in history.
 
 use crate::actor::Page;
-use crate::error::{BrowsingError, Result};
+use crate::error::Result;
 use tracing::info;
 
 /// Manager for browser navigation operations

@@ -56,8 +56,14 @@ impl Browser {
                 .await?;
 
             if let Some(target_infos) = targets["targetInfos"].as_array() {
-                if let Some(first_target) = target_infos.first() {
-                    if let Some(target_id) = first_target["targetId"].as_str() {
+                // Find the first page-type target (not extensions, service workers, etc.)
+                let page_target = target_infos
+                    .iter()
+                    .find(|t| t["type"].as_str() == Some("page"))
+                    .or_else(|| target_infos.first());
+
+                if let Some(target) = page_target {
+                    if let Some(target_id) = target["targetId"].as_str() {
                         let session = CdpSession::for_target(
                             Arc::clone(&client_arc),
                             target_id.to_string(),
@@ -94,8 +100,14 @@ impl Browser {
                 .await?;
 
             if let Some(target_infos) = targets["targetInfos"].as_array() {
-                if let Some(first_target) = target_infos.first() {
-                    if let Some(target_id) = first_target["targetId"].as_str() {
+                // Find the first page-type target (not extensions, service workers, etc.)
+                let page_target = target_infos
+                    .iter()
+                    .find(|t| t["type"].as_str() == Some("page"))
+                    .or_else(|| target_infos.first());
+
+                if let Some(target) = page_target {
+                    if let Some(target_id) = target["targetId"].as_str() {
                         let session = CdpSession::for_target(
                             Arc::clone(&client_arc),
                             target_id.to_string(),
@@ -118,14 +130,39 @@ impl Browser {
         self.navigation_manager.navigate(&page, url).await
     }
 
+    /// Go back in browser history
+    pub async fn go_back(&mut self) -> Result<()> {
+        let page = self.get_page()?;
+        self.navigation_manager.go_back(&page).await
+    }
+
+    /// Go forward in browser history
+    pub async fn go_forward(&mut self) -> Result<()> {
+        let page = self.get_page()?;
+        self.navigation_manager.go_forward(&page).await
+    }
+
     /// Get the current page URL
     pub async fn get_current_url(&self) -> Result<String> {
-        if let Some(target_id) = self.tab_manager.current_target_id() {
-            if let Some(session) = self.tab_manager.get_session(target_id) {
-                return Ok(session.url.clone());
-            }
-        }
-        Err(BrowsingError::Browser("No active session".to_string()))
+        let client = self.get_cdp_client()?;
+        let session_id = self.get_session_id()?;
+
+        // Use Runtime.evaluate to get the current URL from the page
+        let params = serde_json::json!({
+            "expression": "window.location.href",
+            "returnByValue": true,
+        });
+
+        let result = client
+            .send_command_with_session("Runtime.evaluate", params, Some(&session_id))
+            .await?;
+
+        result
+            .get("result")
+            .and_then(|v| v.get("value"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| BrowsingError::Browser("Failed to get current URL".to_string()))
     }
 
     /// Stop the browser session and clean up resources
@@ -337,6 +374,11 @@ impl BrowserClient for Browser {
     async fn go_back(&mut self) -> Result<()> {
         let page = self.get_page()?;
         self.navigation_manager.go_back(&page).await
+    }
+
+    async fn go_forward(&mut self) -> Result<()> {
+        let page = self.get_page()?;
+        self.navigation_manager.go_forward(&page).await
     }
 
     async fn get_current_url(&self) -> Result<String> {

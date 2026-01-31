@@ -8,6 +8,8 @@ use async_trait::async_trait;
 use serde_json::json;
 use tracing::info;
 
+/// Handler for content extraction actions
+/// Handles extract_links, extract_images, find_text, and other content operations
 pub struct ContentHandler;
 
 #[async_trait]

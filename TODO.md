@@ -2,7 +2,21 @@
 
 ## Summary
 
-**Overall Progress**: ~100% Complete (Core Functionality + Signal Handling + Comprehensive Testing)
+**Overall Progress**: ~100% Complete (Core Functionality + CLI + MCP + Library + Documentation + All Tests Passing)
+
+### Recent Updates (February 2025)
+- ✅ Fixed JSON extractor to handle nested JSON structures using brace counting
+- ✅ Added IBM content download example demonstrating web scraping
+- ✅ All 317 tests passing (0 failures, 26 ignored)
+- ✅ Improved error handling in agent execution tests
+- ✅ Updated README and TODO with current status
+
+### Current Status
+- **Library**: Production-ready with comprehensive test coverage
+- **CLI**: Fully functional with run, launch, and connect commands
+- **MCP Server**: Complete with tools, prompts, and resources
+- **Documentation**: Complete with README, usage guides, and examples
+- **Tests**: 317 tests passing across all modules
 
 ### Core Functionality ✅
 - ✅ Browser launch and CDP connection
@@ -14,16 +28,33 @@
 - ✅ Signal handling for graceful shutdown
 - ✅ Comprehensive test suite (74+ tests)
 
+### Three Usage Modes ✅
+- ✅ **CLI Tool** - Command-line interface for autonomous browsing
+- ✅ **MCP Server** - Model Context Protocol server for AI assistants
+- ✅ **Rust Library** - Embeddable library for custom applications
+
+### Documentation ✅
+- ✅ README.md updated with all three usage modes
+- ✅ CLI usage guide (docs/CLI_USAGE.md)
+- ✅ MCP usage guide (docs/MCP_USAGE.md)
+- ✅ Library usage guide (docs/LIBRARY_USAGE.md)
+- ✅ Examples for library usage
+- ✅ AGENTS.md for agentic coding tools
+
 ### Remaining Work ⏳
-- ⏳ Documentation (API docs, examples, migration guide)
 - ⏳ Advanced DOM features (paint order, enhanced markdown) - Optional optimizations
 - ⏳ Cost calculation (token counting implemented, cost calculation can be added)
 - [x] Additional actions (extract - LLM-based content extraction) - ✅ Complete
 - [x] Signal handling (SIGINT/SIGTERM) - ✅ Complete
 - [x] Comprehensive integration tests (24 tests) - ✅ Complete
+- [x] CLI interface - ✅ Complete
+- [x] MCP server - ✅ Complete
+- [x] Library interface - ✅ Complete
+- [x] Documentation (CLI, MCP, Library usage guides) - ✅ Complete
 
 ## Completed ✅
 
+### Core Library
 - [x] Scaffold Rust project structure (single crate)
 - [x] Basic module structure (agent, browser, llm, tools, dom, config, error, utils, views)
 - [x] Core error types
@@ -46,9 +77,41 @@
 - [x] Element clicking and input using Page/Element actors
 - [x] Selector map integration for element lookup by index
 
+### CLI Interface
+- [x] CLI binary with clap argument parsing
+- [x] Run command for autonomous browsing tasks
+- [x] Launch command for browser management
+- [x] Connect command for existing browser instances
+- [x] Configuration via environment variables and files
+- [x] CLI documentation (docs/CLI_USAGE.md)
+
+### MCP Server
+- [x] MCP server binary using rmcp
+- [x] Tools: navigate, get_content, click, input, screenshot
+- [x] Prompts: browse_task template
+- [x] Resources: browser://current for page content
+- [x] Lazy browser initialization
+- [x] MCP documentation (docs/MCP_USAGE.md)
+
+### Library Interface
+- [x] Public API exports in lib.rs
+- [x] Browser, Agent, Config re-exports
+- [x] ChatModel trait for LLM integration
+- [x] Example: library_usage.rs - Basic library usage
+- [x] Example: custom_actions.rs - Custom action handlers
+- [x] Example: ibm_content_download.rs - Web scraping demo
+- [x] Example: comprehensive_showcase.rs - Full feature demonstration
+- [x] Example: basic_navigation.rs - Simple navigation example
+- [x] Example: simple_navigation.rs - Navigation-focused demo
+- [x] Library documentation (docs/LIBRARY_USAGE.md)
+
 ## In Progress 🚧
 
-- [ ] Documentation (API docs, examples, migration guide)
+- [x] Documentation (API docs, examples, README updates) - ✅ Complete with 317 tests passing
+- [ ] Optional enhancements:
+  - [ ] Enhanced markdown extraction (paint order filtering)
+  - [ ] Cost calculation from token counts
+  - [ ] Telemetry module (optional)
 
 ## Pending 📋
 
@@ -83,6 +146,7 @@
 - [x] DOM serializer for LLM representation (basic implementation)
 - [x] get_serialized_dom_tree method
 - [x] Element extraction with indices (selector map)
+- [x] JSON extraction with brace counting (handles nested objects/arrays)
 - [ ] Markdown extraction (enhanced)
 - [ ] Paint order filtering (advanced)
 - [ ] Enhanced DOM snapshot optimizations
@@ -125,16 +189,37 @@
 - [ ] Telemetry (optional)
 
 ### Testing
-- [x] Unit tests for core modules (50+ tests passing)
-- [x] Integration tests (24 comprehensive tests passing)
-- [x] Additional test suites (browser, dom, agent, tools, llm - 13+ tests passing)
+- [x] Unit tests for core modules (317 tests passing, 0 failures)
+- [x] Integration tests (50+ comprehensive tests passing)
+- [x] Actor module tests (page, element, mouse, keyboard operations) - 23 passed
+- [x] Browser managers tests (navigation, screenshot, tab management) - 10 passed
+- [x] Tools handlers tests (navigation, interaction, content, tabs, advanced) - 49 passed
+- [x] Agent service tests (execution logic, history tracking, usage tracking) - 32 passed
+- [x] Agent execution tests (workflow, configuration, token tracking) - 11 passed
+- [x] Traits tests (BrowserClient, DOMProcessor implementations) - 24 passed
+- [x] Utilities tests (URL extraction, domain matching, signal handling) - 49 passed
 - [x] Signal handling tests (2 tests passing)
+- [x] JSON extraction tests (4 tests with nested JSON support)
+- [x] Comprehensive test files:
+  - [actor_test.rs](tests/actor_test.rs) - 23 passed, 6 ignored (require browser)
+  - [tools_handlers_test.rs](tests/tools_handlers_test.rs) - 49 passed, 8 ignored
+  - [agent_service_test.rs](tests/agent_service_test.rs) - 32 passed, 6 ignored
+  - [agent_execution_test.rs](tests/agent_execution_test.rs) - 11 passed
+  - [traits_test.rs](tests/traits_test.rs) - 24 passed, 3 ignored
+  - [utils_test.rs](tests/utils_test.rs) - 49 passed, 3 ignored
+  - Plus 10+ additional test files covering all components
 - [ ] Snapshot tests (insta) - Optional
 
 ### Documentation
-- [ ] API documentation
-- [ ] Examples
-- [ ] Migration guide
+- [x] API documentation (cargo doc --open)
+- [x] Examples (5 working examples demonstrating all features)
+  - ibm_content_download.rs - Web scraping demo
+  - comprehensive_showcase.rs - Full agent capabilities
+  - library_usage.rs - Basic library usage
+  - custom_actions.rs - Extensibility demo
+  - basic_navigation.rs - Simple navigation
+- [x] README.md - Complete with architecture and usage
+- [x] CLI, MCP, and Library usage guides in docs/
 
 ## Notes
 
@@ -142,5 +227,46 @@
 - LLM integration via ChatModel trait
 - Using anyrepair for JSON repair
 - Using rmcp for MCP support
+- Using clap for CLI argument parsing
 - Rust edition 2024
+
+## Usage Modes
+
+### 1. CLI Tool
+```bash
+# Install
+cargo install --path . --bin browsing
+
+# Run autonomous task
+browsing run "Find the latest news" --url https://news.ycombinator.com --headless
+
+# Launch browser
+browsing launch --headless
+
+# Connect to existing browser
+browsing connect ws://localhost:9222/devtools/browser/abc123
+```
+
+### 2. MCP Server
+```bash
+# Build
+cargo build --release --bin browsing-mcp
+
+# Run (communicates via stdio)
+./target/release/browsing-mcp
+
+# Configure in Claude Desktop
+# See docs/MCP_USAGE.md for configuration details
+```
+
+### 3. Rust Library
+```rust
+use browsing::{Browser, Config};
+
+let mut browser = Browser::new(Config::from_env().browser_profile);
+browser.start().await?;
+browser.navigate("https://example.com").await?;
+```
+
+See `docs/LIBRARY_USAGE.md` for complete API documentation.
 

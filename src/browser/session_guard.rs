@@ -13,11 +13,13 @@ use std::sync::Arc;
 /// This struct provides safe access to active browser sessions,
 /// encapsulating the common pattern of checking for an active session
 /// and returning an error if none exists.
+#[allow(dead_code)]
 pub struct SessionGuard<'a> {
     sessions: &'a HashMap<String, CdpSession>,
     current_target_id: Option<&'a String>,
 }
 
+#[allow(dead_code)]
 impl<'a> SessionGuard<'a> {
     /// Create a new session guard
     pub fn new(

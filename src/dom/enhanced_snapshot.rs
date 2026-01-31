@@ -50,14 +50,14 @@ pub fn build_snapshot_lookup(
 
     let documents = snapshot
         .get("documents")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| {
-            crate::error::BrowsingError::Dom("No documents in snapshot".to_string())
-        })?;
+        .and_then(|v| v.as_array());
 
-    if documents.is_empty() {
+    // Return empty lookup if no documents (e.g., about:blank or during page transitions)
+    if documents.is_none() || documents.unwrap().is_empty() {
         return Ok(snapshot_lookup);
     }
+
+    let documents = documents.unwrap();
 
     let strings: Vec<String> = snapshot
         .get("strings")

@@ -100,6 +100,19 @@ impl<L: ChatModel> Agent<L> {
         // Start browser
         self.browser.start().await?;
 
+        // Initialize DOM processor with browser's CDP client
+        let cdp_client = self.browser.get_cdp_client()?;
+        let session_id = self.browser.get_session_id()?;
+        let target_id = self.browser.get_current_target_id()?;
+        
+        // Create a new DOM processor with the CDP client and target ID
+        let dom_processor = Box::new(
+            crate::dom::DOMProcessorImpl::new()
+                .with_cdp_client(cdp_client, session_id)
+                .with_target_id(target_id)
+        );
+        self.dom_processor = dom_processor;
+
         // Extract URL from task if present
         let initial_url = crate::utils::extract_urls(&self.task).first().cloned();
 
@@ -227,22 +240,29 @@ impl<L: ChatModel> Agent<L> {
         let extractor = JSONExtractor::new();
         let json_str = extractor.extract_from_response(response);
 
+        tracing::debug!("Raw LLM response: {}", response);
+        tracing::debug!("Extracted JSON: {}", json_str);
+
         // Try to repair JSON if needed using anyrepair
         // First try to parse directly, if that fails, try to repair
         let repaired = match serde_json::from_str::<Value>(&json_str) {
             Ok(_) => json_str.clone(), // Already valid JSON
-            Err(_) => {
+            Err(e) => {
+                tracing::debug!("JSON parse error, attempting repair: {}", e);
                 // Try to repair using anyrepair
                 anyrepair::repair(&json_str).unwrap_or_else(|_| json_str.clone())
             }
         };
+
+        tracing::debug!("Repaired JSON: {}", repaired);
 
         // Parse JSON
         let value: Value = serde_json::from_str(&repaired)
             .map_err(|e| BrowsingError::Agent(format!("Failed to parse agent output: {e}")))?;
 
         // Convert to AgentOutput
-        let agent_output = serde_json::from_value(value).map_err(|e| {
+        let agent_output = serde_json::from_value(value.clone()).map_err(|e| {
+            tracing::error!("Failed to deserialize agent output. Value: {}", value);
             BrowsingError::Agent(format!("Failed to deserialize agent output: {e}"))
         })?;
 

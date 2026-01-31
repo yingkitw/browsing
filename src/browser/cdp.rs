@@ -186,7 +186,7 @@ impl CdpSession {
 
         for domain in &domains {
             let method = format!("{domain}.enable");
-            let _ = client.send_command(&method, serde_json::json!({})).await;
+            let _ = client.send_command_with_session(&method, serde_json::json!({}), Some(&session_id)).await;
         }
 
         // Get target info

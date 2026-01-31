@@ -12,7 +12,7 @@
 use browsing::browser::{Browser, BrowserProfile};
 use browsing::dom::DOMProcessorImpl;
 use browsing::error::Result;
-use browsing::traits::{BrowserClient, DOMProcessor};
+use browsing::traits::DOMProcessor;
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -25,6 +25,9 @@ pub trait BrowserClient: Send + Sync {
     /// Go back in browser history
     async fn go_back(&mut self) -> Result<()>;
 
+    /// Go forward in browser history
+    async fn go_forward(&mut self) -> Result<()>;
+
     /// Get the current page URL
     async fn get_current_url(&self) -> Result<String>;
 

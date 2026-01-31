@@ -9,6 +9,8 @@ use serde_json::json;
 use std::path::Path;
 use tracing::info;
 
+/// Handler for advanced browser actions
+/// Handles done, evaluate, upload_file, and other advanced operations
 pub struct AdvancedHandler;
 
 #[async_trait]

@@ -42,13 +42,13 @@ impl DemoLLM {
                 "memory": "Beginning comprehensive showcase",
                 "next_goal": "Navigate to example.com",
                 "action": [{
-                    "navigate": {
-                        "url": "https://example.com",
-                        "new_tab": false
+                    "action_type": "navigate",
+                    "params": {
+                        "url": "https://example.com"
                     }
                 }]
             }).to_string(),
-            
+
             // Step 2: Extract content from the page
             json!({
                 "thinking": "Now I'll extract the main content from the page",
@@ -56,99 +56,8 @@ impl DemoLLM {
                 "memory": "Visited example.com",
                 "next_goal": "Extract page content",
                 "action": [{
-                    "extract": {
-                        "query": "Extract the main heading and paragraph text",
-                        "extract_links": true
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 3: Open a new tab with another site
-            json!({
-                "thinking": "Let me open a new tab to demonstrate tab management",
-                "evaluation_previous_goal": "Successfully extracted content",
-                "memory": "Extracted content from example.com",
-                "next_goal": "Open new tab with GitHub",
-                "action": [{
-                    "navigate": {
-                        "url": "https://github.com",
-                        "new_tab": true
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 4: Search on GitHub
-            json!({
-                "thinking": "I'll search for 'rust browser automation' on GitHub",
-                "evaluation_previous_goal": "Opened GitHub in new tab",
-                "memory": "Now on GitHub",
-                "next_goal": "Search for rust browser automation",
-                "action": [{
-                    "search": {
-                        "query": "rust browser automation"
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 5: Wait for results to load
-            json!({
-                "thinking": "Waiting for search results to load",
-                "evaluation_previous_goal": "Initiated search",
-                "memory": "Searching GitHub",
-                "next_goal": "Wait for results",
-                "action": [{
-                    "wait": {
-                        "seconds": 2
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 6: Scroll down to see more results
-            json!({
-                "thinking": "Scrolling down to see more search results",
-                "evaluation_previous_goal": "Waited for page load",
-                "memory": "Search results loaded",
-                "next_goal": "Scroll to see more results",
-                "action": [{
-                    "scroll": {
-                        "down": true,
-                        "pages": 1.0
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 7: Go back to previous page
-            json!({
-                "thinking": "Going back to demonstrate navigation history",
-                "evaluation_previous_goal": "Scrolled page",
-                "memory": "Viewed search results",
-                "next_goal": "Navigate back",
-                "action": [{
-                    "go_back": {}
-                }]
-            }).to_string(),
-            
-            // Step 8: Switch back to first tab
-            json!({
-                "thinking": "Switching back to the first tab with example.com",
-                "evaluation_previous_goal": "Went back in history",
-                "memory": "Demonstrated navigation",
-                "next_goal": "Switch to first tab",
-                "action": [{
-                    "switch": {
-                        "index": 0
-                    }
-                }]
-            }).to_string(),
-            
-            // Step 9: Complete the task
-            json!({
-                "thinking": "I have successfully demonstrated all key capabilities",
-                "evaluation_previous_goal": "Switched tabs successfully",
-                "memory": "Demonstrated: navigation, extraction, tabs, search, scroll, go_back, tab switching",
-                "next_goal": "Complete the showcase",
-                "action": [{
-                    "done": {
+                    "action_type": "done",
+                    "params": {
                         "text": "Successfully demonstrated browser automation capabilities including: navigation, content extraction, tab management, search, scrolling, and history navigation",
                         "success": true
                     }
@@ -181,7 +90,8 @@ impl ChatModel for DemoLLM {
             // Fallback to done action
             json!({
                 "action": [{
-                    "done": {
+                    "action_type": "done",
+                    "params": {
                         "text": "Task completed",
                         "success": true
                     }
@@ -254,12 +164,25 @@ async fn main() -> Result<()> {
 
     // 1. Create browser profile
     println!("📋 Step 1: Creating browser profile...");
+    // Check for BROWSER_USE_HEADLESS environment variable, default to false (visible mode)
+    let headless = std::env::var("BROWSER_USE_HEADLESS")
+        .ok()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or(false);
+
     let profile = BrowserProfile {
-        headless: Some(false), // Set to true for headless mode
+        headless: Some(headless),
         ..Default::default()
     };
-    let browser = Box::new(Browser::new(profile));
-    println!("   ✓ Browser profile created\n");
+
+    println!("   Mode: {}", if headless { "headless (background)" } else { "visible" });
+
+    let mut browser = Box::new(Browser::new(profile));
+
+    // Explicitly start the browser
+    println!("   Starting browser...");
+    browser.start().await?;
+    println!("   ✓ Browser started\n");
 
     // 2. Create DOM processor
     println!("📋 Step 2: Creating DOM processor...");
@@ -326,7 +249,15 @@ async fn main() -> Result<()> {
         }
         Err(e) => {
             println!("\n❌ Agent execution failed: {}", e);
-            println!("   This is expected if Chrome is not installed or accessible");
+            println!("\n💡 Troubleshooting:");
+            println!("   • Make sure Chrome/Chromium is installed");
+            println!("   • Try running: chrome --version");
+            println!("\n   Installation:");
+            println!("   • macOS: https://www.google.com/chrome/");
+            println!("   • Linux: sudo apt-get install chromium-browser");
+            println!("   • Windows: https://www.google.com/chrome/");
+            println!("\n   For debugging, try:");
+            println!("   RUST_LOG=debug cargo run --example comprehensive_showcase");
             return Err(e);
         }
     }

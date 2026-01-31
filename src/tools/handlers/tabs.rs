@@ -7,6 +7,8 @@ use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use tracing::info;
 
+/// Handler for tab management actions
+/// Handles switch, close, and create operations
 pub struct TabsHandler;
 
 #[async_trait]

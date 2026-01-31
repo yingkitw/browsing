@@ -7,6 +7,8 @@ use crate::tools::views::{ActionContext, ActionParams};
 use async_trait::async_trait;
 use tracing::info;
 
+/// Handler for user interaction actions
+/// Handles click, input, and send_keys operations
 pub struct InteractionHandler;
 
 #[async_trait]

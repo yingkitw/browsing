@@ -51,23 +51,81 @@ impl Page {
 
     /// Go back in browser history
     pub async fn go_back(&self) -> Result<()> {
-        let params = json!({
-            "delta": -1
-        });
-        self.client
-            .send_command("Page.navigateToHistoryEntry", params)
+        // Get navigation history to find the previous entry
+        let history = self
+            .client
+            .send_command("Page.getNavigationHistory", json!({}))
             .await?;
+
+        let current_index = history
+            .get("currentIndex")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+
+        let entries = history
+            .get("entries")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| BrowsingError::Browser("No history entries found".to_string()))?;
+
+        // Go back if not at the beginning
+        if current_index > 0 {
+            let previous_entry = entries
+                .get(current_index - 1)
+                .ok_or_else(|| BrowsingError::Browser("No previous history entry".to_string()))?;
+
+            let entry_id = previous_entry
+                .get("id")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| BrowsingError::Browser("No entryId in history entry".to_string()))?;
+
+            let params = json!({
+                "entryId": entry_id
+            });
+            self.client
+                .send_command("Page.navigateToHistoryEntry", params)
+                .await?;
+        }
+
         Ok(())
     }
 
     /// Go forward in browser history
     pub async fn go_forward(&self) -> Result<()> {
-        let params = json!({
-            "delta": 1
-        });
-        self.client
-            .send_command("Page.navigateToHistoryEntry", params)
+        // Get navigation history to find the next entry
+        let history = self
+            .client
+            .send_command("Page.getNavigationHistory", json!({}))
             .await?;
+
+        let current_index = history
+            .get("currentIndex")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+
+        let entries = history
+            .get("entries")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| BrowsingError::Browser("No history entries found".to_string()))?;
+
+        // Go forward if not at the end
+        if current_index + 1 < entries.len() {
+            let next_entry = entries
+                .get(current_index + 1)
+                .ok_or_else(|| BrowsingError::Browser("No next history entry".to_string()))?;
+
+            let entry_id = next_entry
+                .get("id")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| BrowsingError::Browser("No entryId in history entry".to_string()))?;
+
+            let params = json!({
+                "entryId": entry_id
+            });
+            self.client
+                .send_command("Page.navigateToHistoryEntry", params)
+                .await?;
+        }
+
         Ok(())
     }
 

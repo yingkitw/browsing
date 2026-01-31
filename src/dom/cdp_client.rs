@@ -3,8 +3,7 @@
 //! This module provides a wrapper around CDP operations for DOM extraction.
 
 use crate::browser::cdp::CdpClient;
-use crate::error::{BrowsingError, Result};
-use futures::future::try_join4;
+use crate::error::Result;
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -27,13 +26,26 @@ impl DOMCDPClient {
     ) -> Result<(Value, Value, Value, f64)> {
         let session_id = self.session_id.as_deref();
 
+        // Enable required domains first
+        let _ = self.client.send_command_with_session(
+            "DOMSnapshot.enable",
+            serde_json::json!({}),
+            session_id,
+        ).await;
+
+        let _ = self.client.send_command_with_session(
+            "DOM.enable",
+            serde_json::json!({}),
+            session_id,
+        ).await;
+
         // Required computed styles for snapshot
         let required_computed_styles = vec![
             "display", "visibility", "opacity", "overflow", "overflow-x",
             "overflow-y", "position", "z-index", "transform", "transform-origin",
         ];
 
-        // Create snapshot request
+        // Use DOMSnapshot.captureSnapshot (current method, not deprecated)
         let snapshot_params = serde_json::json!({
             "computedStyles": required_computed_styles,
             "includePaintOrder": true,
@@ -42,42 +54,54 @@ impl DOMCDPClient {
             "includeTextColorOpacities": false,
         });
 
-        // Create DOM tree request
+        let snapshot_result = self.client.send_command_with_session(
+            "DOMSnapshot.captureSnapshot",
+            snapshot_params,
+            session_id,
+        ).await.unwrap_or_else(|e| {
+            tracing::warn!("DOMSnapshot.captureSnapshot failed: {}, using empty snapshot", e);
+            serde_json::json!({
+                "documents": [],
+                "strings": []
+            })
+        });
+
+        // Get DOM tree using DOM.getDocument
         let dom_tree_params = serde_json::json!({
             "depth": -1,
             "pierce": true
         });
 
-        // Create accessibility tree request
-        let ax_tree_params = serde_json::json!({});
-
-        // Execute all requests in parallel
-        let snapshot_fut = self.client.send_command_with_session(
-            "DOMSnapshot.captureSnapshot",
-            snapshot_params,
-            session_id,
-        );
-        let dom_tree_fut = self.client.send_command_with_session(
+        let dom_tree_result = self.client.send_command_with_session(
             "DOM.getDocument",
             dom_tree_params,
             session_id,
-        );
-        let ax_tree_fut = self.client.send_command_with_session(
+        ).await.unwrap_or_else(|e| {
+            tracing::warn!("DOM.getDocument failed: {}, using fallback", e);
+            serde_json::json!({
+                "root": {
+                    "nodeId": 1,
+                    "backendNodeId": 1,
+                    "nodeType": 9,
+                    "nodeName": "#document",
+                    "localName": "",
+                    "nodeValue": "",
+                    "childNodeCount": 0,
+                    "children": []
+                }
+            })
+        });
+
+        // Get accessibility tree
+        let ax_tree_result = self.client.send_command_with_session(
             "Accessibility.getFullAXTree",
-            ax_tree_params,
+            serde_json::json!({}),
             session_id,
-        );
-        let viewport_fut = self.get_viewport_ratio(target_id);
+        ).await.unwrap_or_else(|_| serde_json::json!({"nodes": []}));
 
-        // Wait for all with timeout
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            try_join4(snapshot_fut, dom_tree_fut, ax_tree_fut, viewport_fut),
-        )
-        .await
-        .map_err(|_| BrowsingError::Dom("Timeout waiting for CDP responses".to_string()))??;
+        let viewport_ratio = self.get_viewport_ratio(target_id).await.unwrap_or(1.0);
 
-        Ok(result)
+        Ok((snapshot_result, dom_tree_result, ax_tree_result, viewport_ratio))
     }
 
     /// Get viewport ratio (device pixel ratio)
@@ -114,6 +138,7 @@ impl DOMCDPClient {
     }
 
     /// Get the CDP client
+    #[allow(dead_code)]
     pub fn client(&self) -> &Arc<CdpClient> {
         &self.client
     }

@@ -129,8 +129,13 @@ impl BrowserLauncher {
         if let Some(ref user_data_dir) = self.profile.user_data_dir {
             args.push(format!("--user-data-dir={}", user_data_dir.display()));
         } else {
-            // Use temp directory if not provided
-            let temp_dir = std::env::temp_dir().join("browser-use-tmp");
+            // Use unique temp directory for each launch to avoid Chrome's single-instance behavior
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let temp_dir = std::env::temp_dir().join(format!("browser-use-{}", timestamp));
             args.push(format!("--user-data-dir={}", temp_dir.display()));
         }
 
@@ -144,17 +149,16 @@ impl BrowserLauncher {
         args.push(format!("--remote-debugging-port={debug_port}"));
 
         // Additional common args for automation
+        // Note: --no-sandbox is not supported on macOS and modern Chrome
+        // Note: --disable-blink-features is also not supported on modern Chrome
         args.extend(vec![
-            "--disable-blink-features=AutomationControlled".to_string(),
             "--disable-dev-shm-usage".to_string(),
-            "--no-sandbox".to_string(),
-            "--disable-setuid-sandbox".to_string(),
         ]);
 
         args
     }
 
-    /// Launch browser and return CDP URL
+    /// Launch browser and return CDP WebSocket URL
     pub async fn launch(&mut self) -> Result<String> {
         // Find browser executable
         let browser_path = self.find_browser_executable().await?;
@@ -169,32 +173,54 @@ impl BrowserLauncher {
         let mut command = Command::new(&browser_path);
         command.args(&args);
         command.stdin(Stdio::null());
-        command.stdout(Stdio::null());
-        command.stderr(Stdio::null());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
 
-        let child = command
+        tracing::debug!("Launching browser: {:?} with args: {:?}", browser_path, args);
+
+        let mut child = command
             .spawn()
             .map_err(|e| BrowsingError::Browser(format!("Failed to launch browser: {e}")))?;
+
+        // Give the browser a moment to start
+        sleep(Duration::from_millis(1000)).await;
+
+        // Check if process is still alive
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(BrowsingError::Browser(format!(
+                "Browser process exited immediately with status: {:?}",
+                status
+            )));
+        }
 
         self.process = Some(child);
 
         // Wait for CDP to be ready
-        let cdp_url = format!("http://127.0.0.1:{debug_port}");
-        Self::wait_for_cdp_ready(&cdp_url).await?;
+        let cdp_http_url = format!("http://127.0.0.1:{debug_port}");
+        Self::wait_for_cdp_ready(&cdp_http_url).await?;
 
-        Ok(cdp_url)
+        // Get WebSocket debugger URL
+        let ws_url = Self::get_websocket_debugger_url(&cdp_http_url).await?;
+
+        Ok(ws_url)
     }
 
     /// Wait for CDP endpoint to be ready
     async fn wait_for_cdp_ready(cdp_url: &str) -> Result<()> {
-        let max_attempts = 30;
+        let max_attempts = 60;
         let delay = Duration::from_millis(500);
 
-        for _ in 0..max_attempts {
+        for attempt in 0..max_attempts {
             // Try to connect to CDP endpoint
-            if let Ok(response) = reqwest::get(format!("{cdp_url}/json/version")).await {
-                if response.status().is_success() {
-                    return Ok(());
+            match reqwest::get(format!("{cdp_url}/json/version")).await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        tracing::debug!("CDP endpoint ready after {} attempts", attempt + 1);
+                        return Ok(());
+                    }
+                }
+                Err(e) => {
+                    tracing::trace!("CDP connection attempt {}/{} failed: {}", attempt + 1, max_attempts, e);
                 }
             }
 
@@ -202,7 +228,32 @@ impl BrowserLauncher {
         }
 
         Err(BrowsingError::Browser(
-            "CDP endpoint did not become ready in time".to_string(),
+            format!("CDP endpoint did not become ready in time after {} attempts. Make sure Chrome is installed and can be launched.", max_attempts)
+        ))
+    }
+
+    /// Get WebSocket debugger URL from CDP HTTP endpoint
+    async fn get_websocket_debugger_url(cdp_http_url: &str) -> Result<String> {
+        let response = reqwest::get(format!("{cdp_http_url}/json"))
+            .await
+            .map_err(|e| BrowsingError::Browser(format!("Failed to fetch CDP targets: {e}")))?;
+
+        let targets: Vec<serde_json::Value> = response
+            .json()
+            .await
+            .map_err(|e| BrowsingError::Browser(format!("Failed to parse CDP targets: {e}")))?;
+
+        // Find the first page target
+        for target in targets {
+            if target["type"].as_str() == Some("page") {
+                if let Some(ws_url) = target["webSocketDebuggerUrl"].as_str() {
+                    return Ok(ws_url.to_string());
+                }
+            }
+        }
+
+        Err(BrowsingError::Browser(
+            "No WebSocket debugger URL found in CDP targets".to_string(),
         ))
     }
 
