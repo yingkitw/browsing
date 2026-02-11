@@ -166,14 +166,21 @@ impl Browser {
     ///
     /// Users are responsible for managing their own browser data directories.
     pub async fn stop(&mut self) -> Result<()> {
-        // Stop launcher if present (kills browser process only)
+        // 1. Clear tab manager first (drops session refs to CDP client)
+        self.tab_manager = TabManager::new();
+
+        // 2. Send WebSocket Close frame and drop CDP client so background task exits cleanly
+        //    (avoids "Connection reset without closing handshake" ERROR on kill)
+        if let Some(client) = self.cdp_client.take() {
+            client.close().await;
+            drop(client); // Drops sender, spawned task exits from rx.recv() -> None
+        }
+        tokio::task::yield_now().await; // Let spawned WebSocket task exit
+
+        // 3. Stop launcher (kills browser process)
         if let Some(ref mut launcher) = self.launcher {
             launcher.stop().await?;
         }
-
-        // Clear internal managers (in-memory state only)
-        self.tab_manager = TabManager::new();
-        self.cdp_client = None;
         self.launcher = None;
         Ok(())
     }
@@ -363,6 +370,10 @@ impl Browser {
 impl BrowserClient for Browser {
     async fn start(&mut self) -> Result<()> {
         self.start().await
+    }
+
+    async fn stop(&mut self) -> Result<()> {
+        self.stop().await
     }
 
     async fn navigate(&mut self, url: &str) -> Result<()> {

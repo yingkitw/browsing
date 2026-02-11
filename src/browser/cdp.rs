@@ -48,15 +48,21 @@ impl CdpClient {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Some(msg) = rx.recv() => {
-                        if let Err(e) = write.send(msg).await {
-                            tracing::error!("Error sending message to WebSocket: {}", e);
-                            break;
+                    msg = rx.recv() => {
+                        match msg {
+                            Some(Message::Close(_)) => break, // Graceful close initiated by us
+                            Some(m) => {
+                                if let Err(e) = write.send(m).await {
+                                    tracing::debug!("WebSocket send error during shutdown: {}", e);
+                                    break;
+                                }
+                            }
+                            None => break, // Channel closed, sender dropped during shutdown
                         }
                     }
-                    Some(msg) = read.next() => {
+                    msg = read.next() => {
                         match msg {
-                            Ok(Message::Text(text)) => {
+                            Some(Ok(Message::Text(text))) => {
                                 if let Ok(value) = serde_json::from_str::<Value>(&text) {
                                     if let Some(id_val) = value.get("id").and_then(|v| v.as_u64()) {
                                         if let Some(tx) = pending_requests.lock().await.remove(&id_val) {
@@ -65,12 +71,13 @@ impl CdpClient {
                                     }
                                 }
                             }
-                            Ok(Message::Close(_)) => break,
-                            Err(e) => {
-                                tracing::error!("WebSocket connection error: {}", e);
+                            Some(Ok(Message::Close(_))) => break,
+                            Some(Err(e)) => {
+                                tracing::debug!("WebSocket closed: {}", e);
                                 break;
                             }
-                            _ => {}
+                            Some(Ok(_)) => {}
+                            None => break,
                         }
                     }
                 }
@@ -128,13 +135,11 @@ impl CdpClient {
         Err(BrowsingError::Cdp("No response received".to_string()))
     }
 
-    /// Stop the CDP client and close the WebSocket connection
-    pub async fn stop(&mut self) -> Result<()> {
-        // Close WebSocket connection
+    /// Gracefully close the WebSocket connection (works with Arc via &self)
+    pub async fn close(&self) {
         if let Some(sender) = self.sender.lock().await.as_ref() {
             let _ = sender.send(Message::Close(None));
         }
-        Ok(())
     }
 }
 

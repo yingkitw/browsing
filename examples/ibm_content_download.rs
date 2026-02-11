@@ -110,5 +110,9 @@ async fn main() -> Result<()> {
     println!("   - Modify this example to download from other websites");
     println!("   - Add content filtering to extract specific information");
 
+    println!("\n  Closing browser...");
+    browser.stop().await?;
+    println!("  ✓ Browser closed gracefully");
+
     Ok(())
 }

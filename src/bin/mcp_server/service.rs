@@ -15,6 +15,7 @@ use super::sitemap;
 
 #[derive(Clone)]
 pub struct BrowsingService {
+    /// Shared browser instance; cloned for shutdown handler in main
     pub browser: Arc<RwLock<Option<Browser>>>,
     pub tool_router: ToolRouter<Self>,
 }

@@ -112,6 +112,7 @@ async fn main() -> Result<()> {
             }
 
             println!("\nTo use the full agent, implement ChatModel trait for your LLM provider.");
+            let _ = browser.stop().await;
         }
 
         Commands::Launch {
@@ -132,6 +133,7 @@ async fn main() -> Result<()> {
 
             tokio::signal::ctrl_c().await?;
             println!("\nClosing browser...");
+            let _ = browser.stop().await;
         }
 
         Commands::Connect { cdp_url } => {
@@ -146,6 +148,7 @@ async fn main() -> Result<()> {
 
             tokio::signal::ctrl_c().await?;
             println!("\nDisconnecting...");
+            let _ = browser.stop().await;
         }
     }
 

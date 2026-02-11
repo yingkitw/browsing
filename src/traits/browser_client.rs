@@ -19,6 +19,12 @@ pub trait BrowserClient: Send + Sync {
     /// Start the browser session
     async fn start(&mut self) -> Result<()>;
 
+    /// Stop the browser session and clean up resources gracefully.
+    /// Default does nothing (for mocks or external browsers we don't own).
+    async fn stop(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Navigate to the specified URL
     async fn navigate(&mut self, url: &str) -> Result<()>;
 

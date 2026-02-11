@@ -47,6 +47,9 @@ async fn main() -> Result<()> {
     println!("  Current URL: {}", url);
 
     println!("\n=== Example completed successfully ===");
+    println!("  Closing browser...");
+    browser.stop().await?;
+    println!("  ✓ Browser closed gracefully");
 
     Ok(())
 }

@@ -141,5 +141,9 @@ async fn main() -> Result<()> {
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
 
+    println!("\n  Closing browser...");
+    browser.stop().await?;
+    println!("  ✓ Browser closed gracefully");
+
     Ok(())
 }

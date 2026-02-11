@@ -85,10 +85,11 @@ async fn main() -> Result<()> {
     }
 
     println!("✅ Example completed successfully!");
-    println!("\n💡 The browser will remain open. Close it manually or press Ctrl+C");
-    
-    // Keep the program running so browser stays open
-    tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+    println!("\n💡 Keeping browser open 5 seconds for inspection...");
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    println!("\n  Closing browser...");
+    browser.stop().await?;
+    println!("  ✓ Browser closed gracefully");
 
     Ok(())
 }

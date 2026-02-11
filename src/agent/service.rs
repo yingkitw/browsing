@@ -198,6 +198,11 @@ impl<L: ChatModel> Agent<L> {
         // Update history with final usage summary
         self.history.usage = Some(self.usage_tracker.to_summary());
 
+        // Gracefully close browser session
+        if let Err(e) = self.browser.stop().await {
+            info!("⚠ Browser stop warning: {e}");
+        }
+
         Ok(self.history.clone())
     }
 
