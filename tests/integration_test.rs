@@ -225,11 +225,11 @@ impl ChatModel for MockLLM {
     async fn chat_stream(
         &self,
         _messages: &[ChatMessage],
-    ) -> BrowserUseResult<Box<dyn futures::Stream<Item = BrowserUseResult<String>> + Send + Unpin>>
+    ) -> BrowserUseResult<Box<dyn futures_util::stream::Stream<Item = BrowserUseResult<String>> + Send + Unpin>>
     {
         let response = self.chat(_messages).await?;
         let completion = response.completion;
-        let stream = futures::stream::iter(vec![Ok(completion)]);
+        let stream = futures_util::stream::iter(vec![Ok(completion)]);
         Ok(Box::new(stream))
     }
 }

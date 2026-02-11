@@ -121,9 +121,9 @@ impl ChatModel for DemoLLM {
     async fn chat_stream(
         &self,
         messages: &[ChatMessage],
-    ) -> Result<Box<dyn futures::Stream<Item = Result<String>> + Send + Unpin>> {
+    ) -> Result<Box<dyn futures_util::stream::Stream<Item = Result<String>> + Send + Unpin>> {
         let response = self.chat(messages).await?;
-        let stream = futures::stream::iter(vec![Ok(response.completion)]);
+        let stream = futures_util::stream::iter(vec![Ok(response.completion)]);
         Ok(Box::new(stream))
     }
 }

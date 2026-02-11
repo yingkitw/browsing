@@ -159,7 +159,7 @@ async fn test_browser_concurrent_sessions() {
     }).collect();
     
     // Wait for all to complete
-    let browsers: std::result::Result<Vec<_>, _> = futures::future::join_all(handles)
+    let browsers: std::result::Result<Vec<_>, _> = futures_util::future::join_all(handles)
         .await
         .into_iter()
         .collect::<std::result::Result<Vec<_>, _>>();

@@ -69,10 +69,10 @@ impl ChatModel for MockLLM {
     async fn chat_stream(
         &self,
         _messages: &[ChatMessage],
-    ) -> Result<Box<dyn futures::Stream<Item = Result<String>> + Send + Unpin>> {
+    ) -> Result<Box<dyn futures_util::stream::Stream<Item = Result<String>> + Send + Unpin>> {
         // For testing purposes, return a simple stream with one message
         let response = "Mock response";
-        Ok(Box::new(Box::pin(futures::stream::once(async move { 
+        Ok(Box::new(Box::pin(futures_util::stream::once(async move { 
             Ok(response.to_string()) 
         }))))
     }
@@ -298,7 +298,7 @@ async fn test_agent_concurrency_handling() {
     }).collect();
     
     // Wait for all tasks
-    let results: Vec<_> = futures::future::join_all(handles)
+    let results: Vec<_> = futures_util::future::join_all(handles)
         .await
         .into_iter()
         .collect::<std::result::Result<Vec<_>, _>>()

@@ -65,7 +65,7 @@ pub trait ChatModel: Send + Sync {
     async fn chat_stream(
         &self,
         messages: &[ChatMessage],
-    ) -> Result<Box<dyn futures::Stream<Item = Result<String>> + Send + Unpin>>;
+    ) -> Result<Box<dyn futures_util::stream::Stream<Item = Result<String>> + Send + Unpin>>;
 }
 
 /// Usage information for a chat model invocation

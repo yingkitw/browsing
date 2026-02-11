@@ -170,10 +170,10 @@ mod integration_workflow {
             async fn chat_stream(
                 &self,
                 _messages: &[ChatMessage],
-            ) -> browsing::error::Result<Box<dyn futures::Stream<Item = browsing::error::Result<String>> + Send + Unpin>> {
+            ) -> browsing::error::Result<Box<dyn futures_util::stream::Stream<Item = browsing::error::Result<String>> + Send + Unpin>> {
                 // For testing purposes, return a simple stream with one message
                 let response = "Mock response";
-                Ok(Box::new(Box::pin(futures::stream::once(async move { 
+                Ok(Box::new(Box::pin(futures_util::stream::once(async move { 
                     Ok(response.to_string()) 
                 }))))
             }
