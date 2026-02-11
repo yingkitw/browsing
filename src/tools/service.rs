@@ -2,12 +2,10 @@
 
 use crate::agent::views::ActionResult;
 use crate::error::{BrowsingError, Result};
-use crate::llm::base::ChatMessage;
 use crate::traits::BrowserClient;
 use crate::tools::handlers::{AdvancedHandler, ContentHandler, InteractionHandler, NavigationHandler, TabsHandler, Handler};
 use crate::tools::registry::Registry;
 use crate::tools::views::{ActionContext, ActionModel, ActionParams};
-use tracing::info;
 
 /// Tools registry for agent actions
 pub struct Tools {
@@ -194,7 +192,7 @@ impl Tools {
                 AdvancedHandler.handle(&params, &mut context).await
             }
             // Extract action (requires LLM)
-            "extract" => self.handle_extract(action, browser_session, llm).await,
+            "extract" => crate::tools::handlers::extract::handle_extract(action, browser_session, llm).await,
             _ => Err(BrowsingError::Tool(format!(
                 "Unknown action type: {action_type}"
             ))),
@@ -211,141 +209,6 @@ impl Tools {
     ) {
         self.registry
             .register_custom_action(name, description, domains, handler);
-    }
-
-    /// Handle extract action (requires LLM)
-    async fn handle_extract(
-        &self,
-        action: ActionModel,
-        browser_session: &mut dyn BrowserClient,
-        llm: Option<&dyn crate::llm::base::ChatModel>,
-    ) -> Result<ActionResult> {
-        let query = action
-            .params
-            .get("query")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| BrowsingError::Tool("Missing 'query' parameter".to_string()))?;
-
-        let _extract_links = action
-            .params
-            .get("extract_links")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let start_from_char = action
-            .params
-            .get("start_from_char")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as usize;
-
-        // Get current URL
-        let current_url = browser_session
-            .get_current_url()
-            .await
-            .unwrap_or_else(|_| "unknown".to_string());
-
-        // Try to get markdown content using evaluate
-        let page = browser_session.get_page()?;
-        let content_script = r#"
-            (function() {
-                // Get page text content
-                const body = document.body || document.documentElement;
-                return body.innerText || body.textContent || '';
-            })()
-        "#;
-
-        let content = page
-            .evaluate(content_script)
-            .await
-            .unwrap_or_else(|_| "".to_string());
-
-        let content_str = content.as_str();
-
-        // Apply start_from_char
-        let final_content = if start_from_char > 0 && start_from_char < content_str.len() {
-            &content_str[start_from_char..]
-        } else {
-            content_str
-        };
-
-        // Truncate if too long (max 100k chars)
-        let max_chars = 100_000;
-        let truncated = final_content.len() > max_chars;
-        let final_content = if truncated {
-            &final_content[..max_chars]
-        } else {
-            final_content
-        };
-
-        // If LLM is available, use it to extract structured data
-        if let Some(llm) = llm {
-            let system_prompt = "You are a data extraction assistant. Extract the requested information from the provided content and return it in a structured format. Be concise and accurate.";
-            
-            let user_prompt = format!(
-                "Extract the following information from this content:\n\nQuery: {}\n\nContent:\n{}",
-                query, final_content
-            );
-
-            let messages = vec![
-                ChatMessage::system(system_prompt.to_string()),
-                ChatMessage::user(user_prompt),
-            ];
-
-            match llm.chat(&messages).await {
-                Ok(response) => {
-                    let extracted_content = format!(
-                        "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\n{}\n</result>",
-                        current_url, query, response.completion
-                    );
-
-                    let memory = if extracted_content.len() < 1000 {
-                        extracted_content.clone()
-                    } else {
-                        format!(
-                            "Query: {}\nContent extracted ({} chars)",
-                            query,
-                            extracted_content.len()
-                        )
-                    };
-
-                    info!("📄 Extracted content for query: {}", query);
-                    Ok(ActionResult {
-                        extracted_content: Some(extracted_content),
-                        long_term_memory: Some(memory),
-                        ..Default::default()
-                    })
-                }
-                Err(e) => {
-                    Err(BrowsingError::Tool(format!(
-                        "LLM extraction failed: {e}"
-                    )))
-                }
-            }
-        } else {
-            // No LLM available - return raw content with a note
-            let extracted_content = format!(
-                "<url>\n{}\n</url>\n<query>\n{}\n</query>\n<result>\nNo LLM available for extraction. Raw content:\n{}\n</result>",
-                current_url,
-                query,
-                if truncated {
-                    format!(
-                        "{}... (truncated)",
-                        &final_content[..1000.min(final_content.len())]
-                    )
-                } else {
-                    final_content.to_string()
-                }
-            );
-
-            info!("📄 Extracted raw content for query: {} (no LLM)", query);
-            Ok(ActionResult {
-                extracted_content: Some(extracted_content),
-                long_term_memory: Some(format!(
-                    "Extracted content for query: {query} (no LLM available)"
-                )),
-                ..Default::default()
-            })
-        }
     }
 }
 

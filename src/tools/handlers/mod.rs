@@ -4,6 +4,7 @@
 
 mod advanced;
 mod content;
+pub mod extract;
 mod interaction;
 mod navigation;
 mod tabs;

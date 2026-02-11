@@ -75,6 +75,9 @@ downloads/
 screenshot_example.png
 screenshot_example.*
 demo_screenshot.*
+example_com_screenshot.png
+rust_lang_screenshot.png
+*_screenshot.png
 
 # Browser temp directories (NEVER cleanup - safety policy)
 # We do NOT delete browser data to avoid accidentally deleting user's real browser profile

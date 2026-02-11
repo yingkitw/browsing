@@ -1,5 +1,6 @@
 //! DOM parsing and serialization
 
+mod ax_node;
 mod cdp_client;
 mod html_converter;
 mod processor;
@@ -13,6 +14,7 @@ pub mod views;
 #[cfg(test)]
 mod serializer_test;
 
+pub use ax_node::build_enhanced_ax_node;
 pub use enhanced_snapshot::build_snapshot_lookup;
 pub use processor::DOMProcessorImpl;
 pub use serializer::DOMTreeSerializer;

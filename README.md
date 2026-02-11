@@ -6,7 +6,7 @@ A concise MCP server and Rust library: **navigate**, **get_links**, **follow_lin
 
 ## 🎯 Usage Modes
 
-1. **🔌 MCP Server** (primary) - `navigate`, `get_links`, `follow_link`, `list_content`, `get_content`, `get_image`, `save_content`, `screenshot` tools for AI assistants
+1. **🔌 MCP Server** (primary) - `navigate`, `get_links`, `follow_link`, `list_content`, `get_content`, `get_image`, `save_content`, `screenshot`, `generate_sitemap` tools for AI assistants
 2. **⌨️ CLI** - Autonomous browsing tasks
 3. **📦 Library** - Full agent system with LLM, custom actions
 

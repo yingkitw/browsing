@@ -1,15 +1,15 @@
 //! DOM service for page analysis
 
 use crate::browser::{Browser, cdp::CdpClient};
+use crate::dom::ax_node::build_enhanced_ax_node;
+use crate::dom::cdp_client::DOMCDPClient;
 use crate::dom::enhanced_snapshot::build_snapshot_lookup;
+use crate::dom::html_converter::HTMLConverter;
 use crate::dom::serializer::DOMTreeSerializer;
 use crate::dom::views::{
-    DOMRect, EnhancedAXNode, EnhancedAXProperty, EnhancedDOMTreeNode, EnhancedSnapshotNode,
-    NodeType, SerializedDOMState,
+    DOMRect, EnhancedDOMTreeNode, EnhancedSnapshotNode, NodeType, SerializedDOMState,
 };
 use crate::error::{BrowsingError, Result};
-use futures::future::try_join4;
-use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -84,217 +84,7 @@ impl DomService {
 
     /// Extract page content from HTML
     pub async fn extract_page_content(&self, html: &str) -> Result<String> {
-        // Convert HTML to markdown
-        let markdown = self.html_to_markdown(html)?;
-        Ok(markdown)
-    }
-
-    /// Convert HTML to markdown
-    fn html_to_markdown(&self, html: &str) -> Result<String> {
-        // Basic HTML to markdown conversion
-        // This is a simplified version - full implementation would use a proper HTML parser
-        let cleaned_html = self.remove_script_style_tags(html);
-
-        // Use pulldown-cmark to parse markdown (if input is already markdown)
-        // For HTML, we'll do basic text extraction for now
-        let text = self.extract_text(&cleaned_html);
-
-        // Basic markdown formatting
-        let mut markdown = String::new();
-
-        // Split by paragraphs and format
-        for line in text.lines() {
-            let trimmed = line.trim();
-            if !trimmed.is_empty() {
-                markdown.push_str(trimmed);
-                markdown.push_str("\n\n");
-            }
-        }
-
-        Ok(markdown.trim().to_string())
-    }
-
-    /// Remove script and style tags from HTML
-    fn remove_script_style_tags(&self, html: &str) -> String {
-        let script_re = Regex::new(r"(?s)<script[^>]*>.*?</script>").unwrap();
-        let style_re = Regex::new(r"(?s)<style[^>]*>.*?</style>").unwrap();
-
-        let cleaned = script_re.replace_all(html, "");
-        let cleaned = style_re.replace_all(&cleaned, "");
-        cleaned.to_string()
-    }
-
-    /// Get all trees (snapshot, DOM tree, AX tree, device pixel ratio) for a target
-    async fn _get_all_trees(&self, target_id: &str) -> Result<(Value, Value, Value, f64)> {
-        let client = self
-            .cdp_client
-            .as_ref()
-            .ok_or_else(|| BrowsingError::Dom("No CDP client available".to_string()))?;
-        let session_id = self.session_id.as_deref();
-
-        // Required computed styles for snapshot
-        let required_computed_styles = vec![
-            "display",
-            "visibility",
-            "opacity",
-            "overflow",
-            "overflow-x",
-            "overflow-y",
-            "position",
-            "z-index",
-            "transform",
-            "transform-origin",
-        ];
-
-        // Create snapshot request
-        let snapshot_params = serde_json::json!({
-            "computedStyles": required_computed_styles,
-            "includePaintOrder": true,
-            "includeDOMRects": true,
-            "includeBlendedBackgroundColors": false,
-            "includeTextColorOpacities": false,
-        });
-
-        // Create DOM tree request
-        let dom_tree_params = serde_json::json!({
-            "depth": -1,
-            "pierce": true
-        });
-
-        // Create accessibility tree request
-        let ax_tree_params = serde_json::json!({});
-
-        // Get viewport ratio
-        let _viewport_params = serde_json::json!({});
-
-        // Execute all requests in parallel
-        let snapshot_fut = client.send_command_with_session(
-            "DOMSnapshot.captureSnapshot",
-            snapshot_params,
-            session_id,
-        );
-        let dom_tree_fut =
-            client.send_command_with_session("DOM.getDocument", dom_tree_params, session_id);
-        let ax_tree_fut = client.send_command_with_session(
-            "Accessibility.getFullAXTree",
-            ax_tree_params,
-            session_id,
-        );
-        let viewport_fut = self._get_viewport_ratio(target_id);
-
-        // Wait for all with timeout
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            try_join4(snapshot_fut, dom_tree_fut, ax_tree_fut, viewport_fut),
-        )
-        .await
-        .map_err(|_| BrowsingError::Dom("Timeout waiting for CDP responses".to_string()))??;
-
-        let (snapshot_result, dom_tree_result, ax_tree_result, device_pixel_ratio) = result;
-
-        Ok((
-            snapshot_result,
-            dom_tree_result,
-            ax_tree_result,
-            device_pixel_ratio,
-        ))
-    }
-
-    /// Get viewport ratio (device pixel ratio)
-    async fn _get_viewport_ratio(&self, _target_id: &str) -> Result<f64> {
-        let client = self
-            .cdp_client
-            .as_ref()
-            .ok_or_else(|| BrowsingError::Dom("No CDP client available".to_string()))?;
-        let session_id = self.session_id.as_deref();
-
-        // Get layout metrics
-        let metrics = client
-            .send_command_with_session("Page.getLayoutMetrics", serde_json::json!({}), session_id)
-            .await?;
-
-        // Extract device pixel ratio
-        if let Some(visual_viewport) = metrics.get("visualViewport") {
-            if let Some(css_visual_viewport) = metrics.get("cssVisualViewport") {
-                let device_width = visual_viewport
-                    .get("clientWidth")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(1920.0);
-                let css_width = css_visual_viewport
-                    .get("clientWidth")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(1920.0);
-
-                if css_width > 0.0 {
-                    return Ok(device_width / css_width);
-                }
-            }
-        }
-
-        // Fallback to default
-        Ok(1.0)
-    }
-
-    /// Build enhanced AX node from CDP AX node data
-    fn build_enhanced_ax_node(&self, ax_node: &Value) -> Option<EnhancedAXNode> {
-        let ax_node_id = ax_node.get("nodeId")?.as_str()?.to_string();
-        let ignored = ax_node.get("ignored")?.as_bool().unwrap_or(false);
-
-        let role = ax_node
-            .get("role")
-            .and_then(|v| v.get("value"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        let name = ax_node
-            .get("name")
-            .and_then(|v| v.get("value"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        let description = ax_node
-            .get("description")
-            .and_then(|v| v.get("value"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        let properties = ax_node
-            .get("properties")
-            .and_then(|v| v.as_array())
-            .map(|props| {
-                props
-                    .iter()
-                    .filter_map(|prop| {
-                        let name = prop.get("name")?.as_str()?.to_string();
-                        let value = prop.get("value").and_then(|v| v.get("value")).cloned();
-                        Some(EnhancedAXProperty { name, value })
-                    })
-                    .collect()
-            });
-
-        let child_ids = ax_node
-            .get("childIds")
-            .and_then(|v| v.as_array())
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| id.as_str().map(|s| s.to_string()))
-                    .collect()
-            });
-
-        let properties_opt: Option<Vec<EnhancedAXProperty>> = properties
-            .and_then(|p: Vec<EnhancedAXProperty>| if p.is_empty() { None } else { Some(p) });
-        let child_ids_opt: Option<Vec<String>> =
-            child_ids.and_then(|c: Vec<String>| if c.is_empty() { None } else { Some(c) });
-
-        Some(EnhancedAXNode {
-            ax_node_id,
-            ignored,
-            role,
-            name,
-            description,
-            properties: properties_opt,
-            child_ids: child_ids_opt,
-        })
+        HTMLConverter::extract_page_content(html)
     }
 
     /// Get DOM tree for the current target
@@ -317,8 +107,12 @@ impl DomService {
 
     /// Get DOM tree for a specific target ID
     async fn get_dom_tree_by_target(&self, target_id: &str) -> Result<EnhancedDOMTreeNode> {
+        let cdp = self.cdp_client.as_ref().ok_or_else(|| {
+            BrowsingError::Dom("No CDP client available".to_string())
+        })?;
+        let dom_cdp = DOMCDPClient::new(Arc::clone(cdp), self.session_id.clone());
         let (snapshot, dom_tree, ax_tree, device_pixel_ratio) =
-            self._get_all_trees(target_id).await?;
+            dom_cdp.get_all_trees(target_id).await?;
 
         // Build AX tree lookup
         let mut ax_tree_lookup: HashMap<u64, Value> = HashMap::new();
@@ -385,7 +179,7 @@ impl DomService {
         // Get AX node
         let ax_node = ax_tree_lookup
             .get(&backend_node_id)
-            .and_then(|ax| self.build_enhanced_ax_node(ax));
+            .and_then(|ax| build_enhanced_ax_node(ax));
 
         // Parse attributes
         let mut attributes = HashMap::new();
@@ -573,14 +367,7 @@ impl DomService {
 
     /// Extract text content from HTML
     pub fn extract_text(&self, html: &str) -> String {
-        // Basic text extraction - remove HTML tags
-        let tag_re = Regex::new(r"<[^>]+>").unwrap();
-        let text = tag_re.replace_all(html, " ");
-
-        // Clean up whitespace
-        let whitespace_re = Regex::new(r"\s+").unwrap();
-        let cleaned = whitespace_re.replace_all(&text, " ");
-        cleaned.trim().to_string()
+        HTMLConverter::extract_text(html)
     }
 }
 

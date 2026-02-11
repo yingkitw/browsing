@@ -1,6 +1,4 @@
-//! Lightweight MCP server: browse, navigate, get links, follow links,
-//! list content (links/images), get/save content, screenshot (full or element).
-//! Lazy browser init. RwLock enables parallel operations.
+//! MCP BrowsingService: tool implementations
 
 use browsing::{config::Config, Browser};
 use rmcp::{
@@ -9,66 +7,21 @@ use rmcp::{
     tool, tool_handler, tool_router,
     ServerHandler,
 };
-use schemars::JsonSchema;
-use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use super::params::*;
+use super::sitemap;
+
 #[derive(Clone)]
-struct BrowsingService {
-    browser: Arc<RwLock<Option<Browser>>>,
-    tool_router: ToolRouter<Self>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct NavigateParams {
-    #[schemars(description = "URL to navigate to")]
-    url: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct FollowLinkParams {
-    #[schemars(description = "Index of link from get_links (0-based)")]
-    index: Option<u32>,
-    #[schemars(description = "Or specify URL directly")]
-    url: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct GetContentParams {
-    #[schemars(description = "Max characters to return")]
-    max_chars: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct SaveContentParams {
-    #[schemars(description = "Path to save file")]
-    path: String,
-    #[schemars(description = "Content type: text, or image index from list_content")]
-    content_type: String,
-    #[schemars(description = "For image: index from list_content.images")]
-    image_index: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct GetImageParams {
-    #[schemars(description = "Index from list_content.images (0-based)")]
-    index: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct ScreenshotParams {
-    #[schemars(description = "Capture full scrollable page")]
-    full_page: Option<bool>,
-    #[schemars(description = "CSS selector for element (e.g. '.sidebar', '#content', 'a')")]
-    selector: Option<String>,
-    #[schemars(description = "If selector matches multiple elements, use this index")]
-    element_index: Option<u32>,
+pub struct BrowsingService {
+    pub browser: Arc<RwLock<Option<Browser>>>,
+    pub tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl BrowsingService {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             browser: Arc::new(RwLock::new(None)),
             tool_router: Self::tool_router(),
@@ -89,13 +42,17 @@ impl BrowsingService {
     }
 
     #[tool(description = "Navigate to a URL")]
-    async fn navigate(&self, Parameters(p): Parameters<NavigateParams>) -> Result<CallToolResult, McpError> {
+    async fn navigate(
+        &self,
+        Parameters(p): Parameters<NavigateParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let mut g = self.browser.write().await;
         let browser = g.as_mut().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        browser.navigate(&p.url).await.map_err(|e| {
-            McpError::internal_error(format!("Navigate failed: {}", e), None)
-        })?;
+        browser
+            .navigate(&p.url)
+            .await
+            .map_err(|e| McpError::internal_error(format!("Navigate failed: {}", e), None))?;
         Ok(CallToolResult::structured(serde_json::json!({
             "success": true,
             "url": p.url
@@ -107,9 +64,9 @@ impl BrowsingService {
         self.ensure_browser().await?;
         let g = self.browser.read().await;
         let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        let page = browser.get_page().map_err(|e| {
-            McpError::internal_error(format!("Get page failed: {}", e), None)
-        })?;
+        let page = browser
+            .get_page()
+            .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
         let script = r#"
             (function() {
                 const links = Array.from(document.querySelectorAll('a[href]'))
@@ -134,16 +91,19 @@ impl BrowsingService {
     }
 
     #[tool(description = "Follow a link by index (from get_links) or by URL")]
-    async fn follow_link(&self, Parameters(p): Parameters<FollowLinkParams>) -> Result<CallToolResult, McpError> {
+    async fn follow_link(
+        &self,
+        Parameters(p): Parameters<FollowLinkParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let url = if let Some(u) = p.url {
             u
         } else if let Some(idx) = p.index {
             let g = self.browser.read().await;
             let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-            let page = browser.get_page().map_err(|e| {
-                McpError::internal_error(format!("Get page failed: {}", e), None)
-            })?;
+            let page = browser
+                .get_page()
+                .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
             let script = r#"
                 (function() {
                     const links = Array.from(document.querySelectorAll('a[href]'))
@@ -154,18 +114,25 @@ impl BrowsingService {
             let result = page.evaluate(script).await.unwrap_or_else(|_| "[]".to_string());
             let hrefs: Vec<String> = serde_json::from_str(&result).unwrap_or_default();
             drop(g);
-            hrefs.get(idx as usize)
+            hrefs
+                .get(idx as usize)
                 .cloned()
-                .ok_or_else(|| McpError::invalid_params(format!("Link index {} out of range ({} links)", idx, hrefs.len()), None))?
+                .ok_or_else(|| {
+                    McpError::invalid_params(
+                        format!("Link index {} out of range ({} links)", idx, hrefs.len()),
+                        None,
+                    )
+                })?
         } else {
             return Err(McpError::invalid_params("Provide 'index' or 'url'", None));
         };
 
         let mut g = self.browser.write().await;
         let browser = g.as_mut().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        browser.navigate(&url).await.map_err(|e| {
-            McpError::internal_error(format!("Navigate failed: {}", e), None)
-        })?;
+        browser
+            .navigate(&url)
+            .await
+            .map_err(|e| McpError::internal_error(format!("Navigate failed: {}", e), None))?;
         Ok(CallToolResult::structured(serde_json::json!({
             "success": true,
             "url": url
@@ -177,9 +144,9 @@ impl BrowsingService {
         self.ensure_browser().await?;
         let g = self.browser.read().await;
         let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        let page = browser.get_page().map_err(|e| {
-            McpError::internal_error(format!("Get page failed: {}", e), None)
-        })?;
+        let page = browser
+            .get_page()
+            .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
         let script = r#"
             (function() {
                 const links = Array.from(document.querySelectorAll('a[href]'))
@@ -190,8 +157,12 @@ impl BrowsingService {
                 return JSON.stringify({ links, images });
             })()
         "#;
-        let result = page.evaluate(script).await.unwrap_or_else(|_| "{\"links\":[],\"images\":[]}".to_string());
-        let content: serde_json::Value = serde_json::from_str(&result).unwrap_or(serde_json::json!({"links":[],"images":[]}));
+        let result = page
+            .evaluate(script)
+            .await
+            .unwrap_or_else(|_| "{\"links\":[],\"images\":[]}".to_string());
+        let content: serde_json::Value =
+            serde_json::from_str(&result).unwrap_or(serde_json::json!({"links":[],"images":[]}));
         let url = browser.get_current_url().await.unwrap_or_default();
         drop(g);
         Ok(CallToolResult::structured(serde_json::json!({
@@ -202,13 +173,16 @@ impl BrowsingService {
     }
 
     #[tool(description = "Get page text content")]
-    async fn get_content(&self, Parameters(p): Parameters<GetContentParams>) -> Result<CallToolResult, McpError> {
+    async fn get_content(
+        &self,
+        Parameters(p): Parameters<GetContentParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let g = self.browser.read().await;
         let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        let page = browser.get_page().map_err(|e| {
-            McpError::internal_error(format!("Get page failed: {}", e), None)
-        })?;
+        let page = browser
+            .get_page()
+            .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
         let url = browser.get_current_url().await.unwrap_or_default();
         let max_chars = p.max_chars.unwrap_or(100_000) as usize;
         let expr = format!(
@@ -225,21 +199,27 @@ impl BrowsingService {
     }
 
     #[tool(description = "Get or save image by index from list_content.images (captures visible element as screenshot)")]
-    async fn get_image(&self, Parameters(p): Parameters<GetImageParams>) -> Result<CallToolResult, McpError> {
+    async fn get_image(
+        &self,
+        Parameters(p): Parameters<GetImageParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let idx = p.index.unwrap_or(0);
         let g = self.browser.read().await;
         let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-        let page = browser.get_page().map_err(|e| {
-            McpError::internal_error(format!("Get page failed: {}", e), None)
-        })?;
+        let page = browser
+            .get_page()
+            .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
         let elements = page
             .get_elements_by_css_selector("img[src]")
             .await
             .map_err(|e| McpError::internal_error(format!("Get elements failed: {}", e), None))?;
-        let element = elements
-            .get(idx as usize)
-            .ok_or_else(|| McpError::invalid_params(format!("Image index {} out of range ({} images)", idx, elements.len()), None))?;
+        let element = elements.get(idx as usize).ok_or_else(|| {
+            McpError::invalid_params(
+                format!("Image index {} out of range ({} images)", idx, elements.len()),
+                None,
+            )
+        })?;
         let b64 = element
             .screenshot(Some("png"), None)
             .await
@@ -249,16 +229,20 @@ impl BrowsingService {
     }
 
     #[tool(description = "Save text content or image (by index) to a file")]
-    async fn save_content(&self, Parameters(p): Parameters<SaveContentParams>) -> Result<CallToolResult, McpError> {
+    async fn save_content(
+        &self,
+        Parameters(p): Parameters<SaveContentParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let path = p.path;
         match p.content_type.to_lowercase().as_str() {
             "text" => {
                 let g = self.browser.read().await;
-                let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-                let page = browser.get_page().map_err(|e| {
-                    McpError::internal_error(format!("Get page failed: {}", e), None)
-                })?;
+                let browser =
+                    g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
+                let page = browser
+                    .get_page()
+                    .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
                 let text = page
                     .evaluate("(document.body?.innerText||document.body?.textContent||'')")
                     .await
@@ -271,29 +255,40 @@ impl BrowsingService {
             "image" => {
                 let idx = p.image_index.unwrap_or(0);
                 let g = self.browser.read().await;
-                let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
-                let page = browser.get_page().map_err(|e| {
-                    McpError::internal_error(format!("Get page failed: {}", e), None)
-                })?;
+                let browser =
+                    g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
+                let page = browser
+                    .get_page()
+                    .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
                 let elements = page
                     .get_elements_by_css_selector("img[src]")
                     .await
                     .map_err(|e| McpError::internal_error(format!("Get elements failed: {}", e), None))?;
-                let element = elements
-                    .get(idx as usize)
-                    .ok_or_else(|| McpError::invalid_params(format!("Image index {} out of range", idx), None))?;
+                let element = elements.get(idx as usize).ok_or_else(|| {
+                    McpError::invalid_params(format!("Image index {} out of range", idx), None)
+                })?;
                 let b64 = element
                     .screenshot(Some("png"), None)
                     .await
                     .map_err(|e| McpError::internal_error(format!("Screenshot failed: {}", e), None))?;
                 drop(g);
-                let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64)
-                    .map_err(|e| McpError::internal_error(format!("Base64 decode failed: {}", e), None))?;
+                let bytes = base64::Engine::decode(
+                    &base64::engine::general_purpose::STANDARD,
+                    &b64,
+                )
+                .map_err(|e| {
+                    McpError::internal_error(format!("Base64 decode failed: {}", e), None)
+                })?;
                 tokio::fs::write(&path, &bytes)
                     .await
                     .map_err(|e| McpError::internal_error(format!("Write failed: {}", e), None))?;
             }
-            _ => return Err(McpError::invalid_params("content_type must be 'text' or 'image'", None)),
+            _ => {
+                return Err(McpError::invalid_params(
+                    "content_type must be 'text' or 'image'",
+                    None,
+                ))
+            }
         }
         Ok(CallToolResult::structured(serde_json::json!({
             "success": true,
@@ -302,27 +297,40 @@ impl BrowsingService {
     }
 
     #[tool(description = "Take screenshot: full page, or a specific element by CSS selector")]
-    async fn screenshot(&self, Parameters(p): Parameters<ScreenshotParams>) -> Result<CallToolResult, McpError> {
+    async fn screenshot(
+        &self,
+        Parameters(p): Parameters<ScreenshotParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.ensure_browser().await?;
         let g = self.browser.read().await;
         let browser = g.as_ref().ok_or_else(|| McpError::internal_error("No browser", None))?;
 
         let bytes = if let Some(selector) = p.selector {
-            let page = browser.get_page().map_err(|e| {
-                McpError::internal_error(format!("Get page failed: {}", e), None)
-            })?;
+            let page = browser
+                .get_page()
+                .map_err(|e| McpError::internal_error(format!("Get page failed: {}", e), None))?;
             let elements = page
                 .get_elements_by_css_selector(&selector)
                 .await
                 .map_err(|e| McpError::internal_error(format!("Selector failed: {}", e), None))?;
             let idx = p.element_index.unwrap_or(0) as usize;
-            let element = elements
-                .get(idx)
-                .ok_or_else(|| McpError::invalid_params(format!("Element index {} out of range ({} matches for '{}')", idx, elements.len(), selector), None))?;
+            let element = elements.get(idx).ok_or_else(|| {
+                McpError::invalid_params(
+                    format!(
+                        "Element index {} out of range ({} matches for '{}')",
+                        idx,
+                        elements.len(),
+                        selector
+                    ),
+                    None,
+                )
+            })?;
             let b64 = element
                 .screenshot(Some("png"), None)
                 .await
-                .map_err(|e| McpError::internal_error(format!("Element screenshot failed: {}", e), None))?;
+                .map_err(|e| {
+                    McpError::internal_error(format!("Element screenshot failed: {}", e), None)
+                })?;
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64)
                 .map_err(|e| McpError::internal_error(format!("Base64 decode: {}", e), None))?
         } else {
@@ -335,6 +343,31 @@ impl BrowsingService {
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
         Ok(CallToolResult::success(vec![Content::image(b64, "image/png")]))
     }
+
+    #[tool(description = "Generate sitemap by crawling from URL: navigate, capture title and content preview, discover links. Returns structured sitemap (optionally save to file).")]
+    async fn generate_sitemap(
+        &self,
+        Parameters(p): Parameters<GenerateSitemapParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.ensure_browser().await?;
+        let sitemap = sitemap::run_sitemap_crawl(self.browser.clone(), p.clone()).await?;
+
+        if let Some(path) = &p.save_path {
+            let s = serde_json::to_string_pretty(&sitemap)
+                .map_err(|e| McpError::internal_error(format!("Serialize failed: {}", e), None))?;
+            tokio::fs::write(path, s)
+                .await
+                .map_err(|e| McpError::internal_error(format!("Write failed: {}", e), None))?;
+        }
+
+        let total = sitemap.get("total_pages").and_then(|v| v.as_u64()).unwrap_or(0);
+        Ok(CallToolResult::structured(serde_json::json!({
+            "success": true,
+            "total_pages": total,
+            "sitemap": sitemap,
+            "saved_to": p.save_path
+        })))
+    }
 }
 
 #[tool_handler]
@@ -344,17 +377,12 @@ impl ServerHandler for BrowsingService {
             protocol_version: ProtocolVersion::V_2024_11_05,
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation::from_build_env(),
-            instructions: Some("Browse the web: navigate, get_links, follow_link, list_content (links+images), get_content, get_image, save_content, screenshot (full or by selector).".into()),
+            instructions: Some(
+                "Browse the web: navigate, get_links, follow_link, list_content (links+images), \
+                 get_content, get_image, save_content, screenshot (full or by selector), \
+                 generate_sitemap (crawl and capture navigation+content)."
+                    .into(),
+            ),
         }
     }
-}
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    browsing::init();
-    let service = BrowsingService::new();
-    let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let running = rmcp::ServiceExt::serve(service, transport).await?;
-    running.waiting().await?;
-    Ok(())
 }

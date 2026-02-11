@@ -20,7 +20,7 @@ path = "src/bin/cli.rs"
 
 [[bin]]
 name = "browsing-mcp"
-path = "src/bin/mcp_server.rs"
+path = "src/bin/mcp_server/main.rs"
 
 [dependencies]
 # CLI

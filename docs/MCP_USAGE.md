@@ -38,7 +38,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 }
 ```
 
-## Available Tools (8)
+## Available Tools (9)
 
 ### navigate
 Navigate to a URL. **Parameters:** `url` (string, required)
@@ -70,6 +70,10 @@ Save text or image to file. **Parameters:** `path` (string), `content_type` ("te
 Take screenshot: full page, or element by CSS selector. **Parameters:** `full_page` (bool), `selector` (string, e.g. ".sidebar", "#content"), `element_index` (number, when selector matches multiple)  
 **Returns:** Image content (base64 PNG)
 
+### generate_sitemap
+Crawl from a URL, capture title and content preview per page, discover links. **Parameters:** `url` (required), `max_pages` (default 30), `max_depth` (default 3), `same_domain_only` (default true), `content_preview_chars` (default 500), `save_path` (optional file path), `delay_ms` (default 800)  
+**Returns:** `{ success, total_pages, sitemap: { base_url, pages: [{ url, title, content_preview, links, depth }] }, saved_to }`
+
 ## Architecture
 
 - **Lazy init**: Browser starts on first tool call
@@ -98,6 +102,7 @@ LLM_MODEL=ibm/granite-4-h-small
 5. `get_content` for page text
 6. `get_image` with `index` to capture an image, or `save_content` with `content_type: "image"` and `image_index` to save
 7. `screenshot` with `full_page: true` for full page, or `selector: ".hero"` for a specific component
+8. `generate_sitemap` with `url` to crawl and build sitemap; use `save_path` to write JSON to file
 
 ### With Custom MCP Client
 
@@ -124,6 +129,13 @@ client.call_tool("save_content", {"path": "page.txt", "content_type": "text"})
 
 # Screenshot specific element
 client.call_tool("screenshot", {"selector": "main"})
+
+# Generate sitemap from URL (crawl, capture content, save)
+client.call_tool("generate_sitemap", {
+    "url": "https://example.com",
+    "max_pages": 20,
+    "save_path": "sitemap.json"
+})
 ```
 
 ## Architecture
