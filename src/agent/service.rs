@@ -102,14 +102,13 @@ impl<L: ChatModel> Agent<L> {
 
         // Initialize DOM processor with browser's CDP client
         let cdp_client = self.browser.get_cdp_client()?;
-        let session_id = self.browser.get_session_id()?;
-        let target_id = self.browser.get_current_target_id()?;
-        
+        let session_info = self.browser.get_session_info().await?;
+
         // Create a new DOM processor with the CDP client and target ID
         let dom_processor = Box::new(
             crate::dom::DOMProcessorImpl::new()
-                .with_cdp_client(cdp_client, session_id)
-                .with_target_id(target_id)
+                .with_cdp_client(cdp_client, session_info.session_id)
+                .with_target_id(session_info.target_id)
         );
         self.dom_processor = dom_processor;
 

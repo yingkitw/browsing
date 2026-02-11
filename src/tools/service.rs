@@ -82,12 +82,6 @@ impl Tools {
         );
 
         registry.register_action(
-            "go_back".to_string(),
-            "Go back in browser history".to_string(),
-            None,
-        );
-
-        registry.register_action(
             "wait".to_string(),
             "Wait for specified seconds".to_string(),
             None,
@@ -180,7 +174,7 @@ impl Tools {
 
         match action_type {
             // Navigation actions
-            "search" | "navigate" | "go_back" => {
+            "search" | "navigate" => {
                 NavigationHandler.handle(&params, &mut context).await
             }
             // Interaction actions

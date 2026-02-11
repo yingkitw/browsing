@@ -33,7 +33,31 @@ cargo run --example comprehensive_showcase
 
 **Note:** This example uses a mock LLM with predefined responses, so it will work without any API keys. The browser will open in non-headless mode so you can see the automation in action.
 
-### 2. Simple Navigation (`simple_navigation.rs`)
+### 2. Browse, Navigate, Extract (`browse_navigate_extract.rs`)
+
+A focused example for the browse → navigate → get text → get image flow:
+
+- Start browser and navigate to example.com
+- Extract page text (innerText)
+- Take screenshot (save as PNG)
+- Navigate to rust-lang.org
+- Extract text and screenshot again
+- Go back in history
+
+**Run it:**
+```bash
+cargo run --example browse_navigate_extract
+BROWSER_USE_HEADLESS=true cargo run --example browse_navigate_extract  # headless
+```
+
+**Features Demonstrated:**
+- ✅ Full browse/navigate/text/image flow
+- ✅ Multi-page navigation
+- ✅ Text extraction (lightweight innerText)
+- ✅ Screenshot capture (2 images)
+- ✅ History navigation (go back)
+
+### 3. Simple Navigation (`simple_navigation.rs`)
 
 A straightforward example demonstrating basic browser operations:
 

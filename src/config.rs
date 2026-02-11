@@ -1,36 +1,9 @@
 //! Configuration management for browsing-rs
 
+use crate::browser::profile::BrowserProfile;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tracing::warn;
-
-/// Configuration for browser profile
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrowserProfileConfig {
-    /// Whether to run browser in headless mode
-    pub headless: Option<bool>,
-    /// Path to user data directory
-    pub user_data_dir: Option<PathBuf>,
-    /// List of allowed domains
-    pub allowed_domains: Option<Vec<String>>,
-    /// Path to downloads directory
-    pub downloads_path: Option<PathBuf>,
-    /// Proxy configuration
-    pub proxy: Option<ProxyConfig>,
-}
-
-/// Proxy configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProxyConfig {
-    /// Proxy server URL
-    pub server: String,
-    /// Bypass list for proxy
-    pub bypass: Option<String>,
-    /// Username for proxy authentication
-    pub username: Option<String>,
-    /// Password for proxy authentication
-    pub password: Option<String>,
-}
 
 /// Configuration for LLM
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,11 +29,11 @@ pub struct AgentConfig {
     pub system_prompt: Option<String>,
 }
 
-/// Main configuration structure
+/// Main configuration structure (streamlined)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Browser profile configuration
-    pub browser_profile: BrowserProfileConfig,
+    /// Browser profile configuration (unified)
+    pub browser_profile: BrowserProfile,
     /// LLM configuration
     pub llm: LlmConfig,
     /// Agent configuration
@@ -74,7 +47,7 @@ impl Config {
         let _ = dotenv::dotenv();
 
         Self {
-            browser_profile: BrowserProfileConfig {
+            browser_profile: BrowserProfile {
                 headless: std::env::var("BROWSER_USE_HEADLESS")
                     .ok()
                     .and_then(|v| v.parse().ok()),

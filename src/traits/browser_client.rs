@@ -5,7 +5,7 @@
 
 use crate::actor::Page;
 use crate::browser::cdp::CdpClient;
-use crate::browser::views::TabInfo;
+use crate::browser::views::{SessionInfo, TabInfo};
 use crate::error::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -21,12 +21,6 @@ pub trait BrowserClient: Send + Sync {
 
     /// Navigate to the specified URL
     async fn navigate(&mut self, url: &str) -> Result<()>;
-
-    /// Go back in browser history
-    async fn go_back(&mut self) -> Result<()>;
-
-    /// Go forward in browser history
-    async fn go_forward(&mut self) -> Result<()>;
 
     /// Get the current page URL
     async fn get_current_url(&self) -> Result<String>;
@@ -56,15 +50,28 @@ pub trait BrowserClient: Send + Sync {
         full_page: bool,
     ) -> Result<Vec<u8>>;
 
+    /// Get streamlined session information (URL, title, target ID, session ID)
+    async fn get_session_info(&self) -> Result<SessionInfo> {
+        Ok(SessionInfo {
+            url: self.get_current_url().await?,
+            title: self.get_current_page_title().await?,
+            target_id: self.get_current_target_id()?,
+            session_id: self.get_session_id()?,
+        })
+    }
+
     /// Get the current page title
+    #[deprecated(since = "0.1.2", note = "Use get_session_info() instead")]
     async fn get_current_page_title(&self) -> Result<String>;
 
     /// Get the CDP client for the current session
     fn get_cdp_client(&self) -> Result<Arc<CdpClient>>;
 
     /// Get the session ID for the current target
+    #[deprecated(since = "0.1.2", note = "Use get_session_info() instead")]
     fn get_session_id(&self) -> Result<String>;
 
     /// Get the current target ID
+    #[deprecated(since = "0.1.2", note = "Use get_session_info() instead")]
     fn get_current_target_id(&self) -> Result<String>;
 }

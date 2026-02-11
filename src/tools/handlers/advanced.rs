@@ -30,12 +30,7 @@ impl AdvancedHandler {
     async fn done(&self, params: &ActionParams<'_>) -> Result<ActionResult> {
         let text = params.get_required_str("text").unwrap_or("Task completed");
         info!("✅ {}", text);
-        Ok(ActionResult {
-            extracted_content: Some(text.to_string()),
-            is_done: Some(true),
-            success: Some(true),
-            ..Default::default()
-        })
+        Ok(ActionResult::done(text))
     }
 
     async fn evaluate(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
@@ -105,11 +100,11 @@ impl AdvancedHandler {
                 .ok_or_else(|| BrowsingError::Dom("Invalid nodeId".into()))? as u32
         };
 
-        let session_id = context.browser.get_session_id()?;
+        let session_info = context.browser.get_session_info().await?;
         client.send_command_with_session("DOM.setFileInputFiles", json!({
             "nodeId": node_id,
             "files": [path_str]
-        }), Some(&session_id)).await
+        }), Some(&session_info.session_id)).await
             .map_err(|e| BrowsingError::Tool(format!("Failed to upload file: {}", e)))?;
 
         let memory = format!("Uploaded file {} to element {}", path_str, index);
@@ -129,10 +124,6 @@ impl AdvancedHandler {
 
         let memory = format!("Waited for {} seconds", seconds);
         info!("🕒 {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 }

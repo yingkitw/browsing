@@ -46,13 +46,6 @@ async fn main() -> Result<()> {
     let url = browser.get_current_url().await?;
     println!("  Current URL: {}", url);
 
-    // Go back
-    browser.go_back().await?;
-    println!("\n✓ Navigated back");
-
-    let url = browser.get_current_url().await?;
-    println!("  Current URL: {}", url);
-
     println!("\n=== Example completed successfully ===");
 
     Ok(())

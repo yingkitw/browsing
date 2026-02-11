@@ -148,6 +148,14 @@ impl BrowserLauncher {
         // Remote debugging port
         args.push(format!("--remote-debugging-port={debug_port}"));
 
+        // Proxy configuration (if set)
+        if let Some(ref proxy) = self.profile.proxy {
+            args.push(format!("--proxy-server={}", proxy.server));
+            if let Some(ref bypass) = proxy.bypass {
+                args.push(format!("--proxy-bypass-list={}", bypass));
+            }
+        }
+
         // Additional common args for automation
         // Note: --no-sandbox is not supported on macOS and modern Chrome
         // Note: --disable-blink-features is also not supported on modern Chrome
@@ -258,6 +266,18 @@ impl BrowserLauncher {
     }
 
     /// Stop the browser process
+    ///
+    /// # Safety Policy
+    ///
+    /// **IMPORTANT**: This method ONLY stops the browser process.
+    /// It does NOT delete the user data directory.
+    ///
+    /// This is intentional for safety reasons:
+    /// - Users may specify a custom `user_data_dir` pointing to their real browser profile
+    /// - Accidentally deleting user data (bookmarks, history, passwords, etc.) would be catastrophic
+    /// - Temporary directories are left in place for debugging and inspection
+    ///
+    /// Users are responsible for managing their own user data directories.
     pub async fn stop(&mut self) -> Result<()> {
         if let Some(mut process) = self.process.take() {
             let _ = process.kill().await;
@@ -269,6 +289,7 @@ impl BrowserLauncher {
 impl Drop for BrowserLauncher {
     fn drop(&mut self) {
         // Try to stop browser on drop
+        // NOTE: We do NOT clean up user_data_dir - see stop() method for safety policy
         if let Some(ref mut process) = self.process {
             let _ = process.kill();
         }

@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
     // Create browser profile
     let profile = BrowserProfile {
         headless: Some(headless),
+        proxy: None,
         ..Default::default()
     };
 
@@ -125,14 +126,6 @@ async fn main() -> Result<()> {
 
     let wiki_title = browser.get_current_page_title().await?;
     println!("     ✓ Loaded: {}", wiki_title);
-
-    // Go back
-    println!("   • Going back...");
-    browser.go_back().await?;
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    let back_url = browser.get_current_url().await?;
-    println!("     ✓ Back to: {}", back_url);
     println!();
 
     println!("✅ Navigation example completed successfully!");

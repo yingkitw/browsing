@@ -2,9 +2,8 @@
 //!
 //! This test suite verifies the fixes for:
 //! 1. Target selection filtering for page-type targets
-//! 2. go_back/go_forward using correct CDP commands
-//! 3. get_current_url using Runtime.evaluate
-//! 4. Removed unsupported Chrome flags
+//! 2. get_current_url using Runtime.evaluate
+//! 3. Removed unsupported Chrome flags
 
 use browsing::browser::{Browser, BrowserProfile};
 
@@ -33,80 +32,6 @@ async fn test_browser_selects_page_target() {
     // Navigate to verify the target is actually a page (not extension)
     let navigate_result = browser.navigate("https://example.com").await;
     assert!(navigate_result.is_ok(), "Should be able to navigate on page target");
-
-    browser.stop().await.ok();
-}
-
-/// Test that go_back and go_forward use correct CDP parameters
-#[tokio::test]
-#[ignore] // Requires actual Chrome installation
-async fn test_go_back_forward_with_correct_cdp_parameters() {
-    let profile = BrowserProfile {
-        headless: Some(true),
-        ..Default::default()
-    };
-
-    let mut browser = Browser::new(profile);
-
-    browser.start().await.expect("Browser should start");
-
-    // Navigate to first URL
-    browser
-        .navigate("https://example.com")
-        .await
-        .expect("Should navigate to example.com");
-
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    // Navigate to second URL to build history
-    browser
-        .navigate("https://www.bing.com")
-        .await
-        .expect("Should navigate to bing");
-
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    // Get current URL (should be bing)
-    let url_after_second_nav = browser
-        .get_current_url()
-        .await
-        .expect("Should get current URL");
-    assert!(
-        url_after_second_nav.contains("bing"),
-        "Current URL should be bing"
-    );
-
-    // Go back - should work with correct entryId parameter
-    let go_back_result = browser.go_back().await;
-    assert!(
-        go_back_result.is_ok(),
-        "go_back should work with Page.getNavigationHistory + Page.navigateToHistoryEntry"
-    );
-
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    // Verify we're back at example.com
-    let url_after_back = browser.get_current_url().await.expect("Should get URL");
-    assert!(
-        url_after_back.contains("example"),
-        "After go_back, should be at example.com"
-    );
-
-    // Go forward
-    let go_forward_result = browser.go_forward().await;
-    assert!(
-        go_forward_result.is_ok(),
-        "go_forward should work with Page.getNavigationHistory + Page.navigateToHistoryEntry"
-    );
-
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    // Verify we're back at bing
-    let url_after_forward = browser.get_current_url().await.expect("Should get URL");
-    assert!(
-        url_after_forward.contains("bing"),
-        "After go_forward, should be at bing"
-    );
 
     browser.stop().await.ok();
 }
@@ -238,38 +163,6 @@ async fn test_full_navigation_workflow() {
         url3
     );
 
-    // Step 5: Go back twice
-    browser.go_back().await.expect("Should go back");
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    let url_after_back1 = browser.get_current_url().await.expect("Should get URL");
-    assert!(
-        url_after_back1.contains("bing"),
-        "After first back, should be at bing, got: {}",
-        url_after_back1
-    );
-
-    browser.go_back().await.expect("Should go back again");
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    let url_after_back2 = browser.get_current_url().await.expect("Should get URL");
-    assert!(
-        url_after_back2.contains("example"),
-        "After second back, should be at example, got: {}",
-        url_after_back2
-    );
-
-    // Step 6: Go forward
-    browser.go_forward().await.expect("Should go forward");
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    let url_after_forward = browser.get_current_url().await.expect("Should get URL");
-    assert!(
-        url_after_forward.contains("bing"),
-        "After forward, should be at bing, got: {}",
-        url_after_forward
-    );
-
     browser.stop().await.ok();
 }
 
@@ -386,21 +279,6 @@ async fn test_multiple_navigation_operations() {
         assert!(
             current_url.contains(&domain[..domain.find('/').unwrap_or(domain.len())]),
             "Should be at {}, got: {}",
-            url,
-            current_url
-        );
-    }
-
-    // Go back through all of them
-    for url in urls.iter().rev().skip(1) {
-        browser.go_back().await.expect("Should go back");
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-        let current_url = browser.get_current_url().await.expect("Should get URL");
-        let domain = url.split("://").nth(1).unwrap_or("");
-        assert!(
-            current_url.contains(&domain[..domain.find('/').unwrap_or(domain.len())]),
-            "After go_back, should be at {}, got: {}",
             url,
             current_url
         );

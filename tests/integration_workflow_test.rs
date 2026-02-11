@@ -26,6 +26,7 @@ mod integration_workflow {
             user_data_dir: None,
             allowed_domains: None, // Allow all domains
             downloads_path: Some("/tmp/browser_downloads".into()),
+            proxy: None,
         };
 
         let browser = Box::new(Browser::new(profile));

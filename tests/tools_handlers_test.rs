@@ -1,7 +1,7 @@
 //! Comprehensive tests for tools handlers
 //!
 //! These tests cover:
-//! - NavigationHandler (search, navigate, go_back)
+//! - NavigationHandler (search, navigate)
 //! - InteractionHandler (click, input, send_keys)
 //! - ContentHandler (scroll, find_text, dropdown_options, select_dropdown)
 //! - TabsHandler (create_tab, switch_tab, close_tab)
@@ -23,12 +23,6 @@ fn test_navigation_handler_search_action_type() {
 fn test_navigation_handler_navigate_action_type() {
     let action_type = "navigate";
     assert_eq!(action_type, "navigate");
-}
-
-#[test]
-fn test_navigation_handler_go_back_action_type() {
-    let action_type = "go_back";
-    assert_eq!(action_type, "go_back");
 }
 
 #[test]

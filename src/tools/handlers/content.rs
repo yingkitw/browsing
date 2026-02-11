@@ -40,11 +40,7 @@ impl ContentHandler {
         let direction = if down { "down" } else { "up" };
         let memory = format!("Scrolled {} {} pages", direction, pages);
         info!("📜 {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     async fn find_text(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
@@ -76,17 +72,16 @@ impl ContentHandler {
         if found {
             let memory = format!("Scrolled to text: {}", text);
             info!("🔍 {}", memory);
-            Ok(ActionResult {
-                extracted_content: Some(memory.clone()),
-                long_term_memory: Some(memory),
-                ..Default::default()
-            })
+            Ok(ActionResult::success_with_memory(memory))
         } else {
             let msg = format!("Text '{}' not found or not visible on page", text);
             info!("⚠️ {}", msg);
             Ok(ActionResult {
-                extracted_content: Some(msg.clone()),
-                long_term_memory: Some(format!("Tried scrolling to text '{}' but it was not found", text)),
+                extracted_content: Some(msg),
+                long_term_memory: Some(format!(
+                    "Tried scrolling to text '{}' but it was not found",
+                    text
+                )),
                 ..Default::default()
             })
         }

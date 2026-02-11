@@ -25,7 +25,6 @@ fn test_browser_client_trait_methods_exist() {
     let methods = vec![
         "start",
         "navigate",
-        "go_back",
         "get_current_url",
         "create_tab",
         "switch_to_tab",
@@ -40,7 +39,7 @@ fn test_browser_client_trait_methods_exist() {
         "get_current_target_id",
     ];
 
-    assert_eq!(methods.len(), 15);
+    assert_eq!(methods.len(), 14);
 }
 
 #[test]
@@ -49,7 +48,6 @@ fn test_browser_client_async_methods() {
     let async_methods = vec![
         "start",
         "navigate",
-        "go_back",
         "get_current_url",
         "create_tab",
         "switch_to_tab",
@@ -60,7 +58,7 @@ fn test_browser_client_async_methods() {
         "get_current_page_title",
     ];
 
-    assert_eq!(async_methods.len(), 11);
+    assert_eq!(async_methods.len(), 10);
 }
 
 #[test]
@@ -205,14 +203,6 @@ impl BrowserClient for MockBrowserClient {
     async fn navigate(&mut self, url: &str) -> Result<()> {
         self.current_url = url.to_string();
         self.navigation_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        Ok(())
-    }
-
-    async fn go_back(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    async fn go_forward(&mut self) -> Result<()> {
         Ok(())
     }
 

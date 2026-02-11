@@ -371,7 +371,6 @@ fn test_action_model_validation() {
         "input",
         "scroll",
         "extract_content",
-        "go_back",
         "create_tab",
         "switch_tab",
     ];

@@ -34,6 +34,7 @@ async fn main() -> Result<()> {
 
     let profile = BrowserProfile {
         headless: Some(headless),
+        proxy: None,
         ..Default::default()
     };
 

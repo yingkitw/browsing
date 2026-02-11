@@ -160,7 +160,7 @@
 
 ### Tools/Actions
 - [x] Action registry system
-- [x] Default actions (click, input, navigate, search, done, switch, close, scroll, go_back, wait, send_keys, evaluate, find_text, dropdown_options, select_dropdown, upload_file, extract)
+- [x] Default actions (click, input, navigate, search, done, switch, close, scroll, wait, send_keys, evaluate, find_text, dropdown_options, select_dropdown, upload_file, extract)
 - [x] Action execution (basic implementation)
 - [x] Element interaction (click, input using Page/Element actors)
 - [x] Selector map integration (get element by index, lookup backend_node_id)
@@ -208,7 +208,6 @@
   - [traits_test.rs](tests/traits_test.rs) - 24 passed, 3 ignored
   - [utils_test.rs](tests/utils_test.rs) - 49 passed, 3 ignored
   - Plus 10+ additional test files covering all components
-- [ ] Snapshot tests (insta) - Optional
 
 ### Documentation
 - [x] API documentation (cargo doc --open)

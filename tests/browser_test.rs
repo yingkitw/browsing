@@ -42,6 +42,7 @@ async fn test_browser_headless_startup() {
         user_data_dir: None,
         allowed_domains: None,
         downloads_path: None,
+        proxy: None,
     };
     
     let mut browser = Browser::new(profile);
@@ -75,6 +76,7 @@ async fn test_browser_basic_workflow() {
         user_data_dir: None, // Use temporary directory
         allowed_domains: None,
         downloads_path: None,
+        proxy: None,
     };
     
     let mut browser = Browser::new(profile);

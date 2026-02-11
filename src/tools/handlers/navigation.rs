@@ -1,6 +1,6 @@
 //! Navigation action handlers
 //!
-//! Handlers for search, navigate, and go_back actions.
+//! Handlers for search and navigate actions.
 
 use super::Handler;
 use crate::agent::views::ActionResult;
@@ -24,7 +24,6 @@ impl Handler for NavigationHandler {
         match action_type {
             "search" => self.search(params, context).await,
             "navigate" => self.navigate(params, context).await,
-            "go_back" => self.go_back(context).await,
             _ => Err(BrowsingError::Tool(format!(
                 "Unknown navigation action: {action_type}"
             ))),
@@ -56,11 +55,7 @@ impl NavigationHandler {
         context.browser.navigate(&search_url).await?;
         let memory = format!("Searched {} for '{}'", engine, query);
         info!("🔍 {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     /// Navigate to a URL
@@ -73,32 +68,12 @@ impl NavigationHandler {
             context.browser.switch_to_tab(&target_id).await?;
             let memory = format!("Opened new tab with URL {}", url);
             info!("🔗 {}", memory);
-            Ok(ActionResult {
-                extracted_content: Some(memory.clone()),
-                long_term_memory: Some(memory),
-                ..Default::default()
-            })
+            Ok(ActionResult::success_with_memory(memory))
         } else {
             context.browser.navigate(url).await?;
             let memory = format!("Navigated to {}", url);
             info!("🔗 {}", memory);
-            Ok(ActionResult {
-                extracted_content: Some(memory.clone()),
-                long_term_memory: Some(memory),
-                ..Default::default()
-            })
+            Ok(ActionResult::success_with_memory(memory))
         }
-    }
-
-    /// Go back in browser history
-    async fn go_back(&self, context: &mut ActionContext<'_>) -> Result<ActionResult> {
-        context.browser.go_back().await?;
-        let memory = "Navigated back".to_string();
-        info!("🔙 {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
     }
 }

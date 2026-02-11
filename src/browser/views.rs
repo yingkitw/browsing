@@ -71,6 +71,33 @@ pub struct PaginationButton {
     pub is_disabled: bool,
 }
 
+/// Streamlined session information grouping commonly-accessed state
+///
+/// This consolidates multiple getter calls into a single struct for efficiency.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionInfo {
+    /// Current page URL
+    pub url: String,
+    /// Current page title
+    pub title: String,
+    /// Current target ID (tab)
+    pub target_id: String,
+    /// Current session ID
+    pub session_id: String,
+}
+
+impl SessionInfo {
+    /// Create a new SessionInfo
+    pub fn new(url: String, title: String, target_id: String, session_id: String) -> Self {
+        Self {
+            url,
+            title,
+            target_id,
+            session_id,
+        }
+    }
+}
+
 /// The summary of the browser's current state designed for an LLM to process
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserStateSummary {
@@ -134,24 +161,6 @@ impl BrowserStateHistory {
 
     /// Converts the state history to a dictionary
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
-        let mut data = HashMap::new();
-        data.insert(
-            "tabs".to_string(),
-            serde_json::to_value(&self.tabs).unwrap(),
-        );
-        data.insert(
-            "screenshot_path".to_string(),
-            serde_json::to_value(&self.screenshot_path).unwrap(),
-        );
-        data.insert(
-            "interacted_element".to_string(),
-            serde_json::to_value(&self.interacted_element).unwrap(),
-        );
-        data.insert("url".to_string(), serde_json::to_value(&self.url).unwrap());
-        data.insert(
-            "title".to_string(),
-            serde_json::to_value(&self.title).unwrap(),
-        );
-        data
+        serde_json::from_value(serde_json::to_value(self).unwrap()).unwrap()
     }
 }

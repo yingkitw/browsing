@@ -34,11 +34,7 @@ impl InteractionHandler {
 
         let memory = format!("Clicked element {} (backend_node_id: {})", index, backend_node_id);
         info!("🖱️ {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     async fn input(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
@@ -52,11 +48,7 @@ impl InteractionHandler {
 
         let memory = format!("Input text into element {} (backend_node_id: {})", index, backend_node_id);
         info!("⌨️ {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     async fn send_keys(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
@@ -70,10 +62,6 @@ impl InteractionHandler {
 
         let memory = format!("Sent keys: {}", keys);
         info!("⌨️ {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 }

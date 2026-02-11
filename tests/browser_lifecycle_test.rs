@@ -27,6 +27,7 @@ async fn test_browser_profile_configuration() {
         user_data_dir: Some("/tmp/test_browser".into()),
         allowed_domains: Some(vec!["example.com".to_string()]),
         downloads_path: Some("/tmp/downloads".into()),
+        proxy: None,
     };
     
     let browser = Browser::new(profile);
@@ -131,6 +132,7 @@ fn test_browser_profile_validation() {
         user_data_dir: None,
         allowed_domains: Some(vec![]), // Empty domain list might be invalid
         downloads_path: None,
+        proxy: None,
     };
     
     // Profile creation should succeed (validation happens at use time)
@@ -150,6 +152,7 @@ async fn test_browser_concurrent_sessions() {
                 user_data_dir: Some(format!("/tmp/test_browser_{}", i).into()),
                 allowed_domains: None,
                 downloads_path: None,
+                proxy: None,
             };
             Browser::new(profile)
         })

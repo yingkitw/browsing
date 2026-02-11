@@ -1,11 +1,11 @@
 [package]
 name = "browsing"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
 repository = "https://github.com/yingkitw/browsing"
-description = "Autonomous web browsing for AI agents - Rust implementation with MCP support"
+description = "Lightweight MCP/API for browser automation: navigate, get content (text), screenshot. Parallelism via RwLock."
 keywords = ["ai", "agents", "web-browsing", "automation", "mcp"]
 documentation = "https://docs.rs/browsing"
 homepage = "https://github.com/yingkitw/browsing"
@@ -66,8 +66,9 @@ insta = "1.40"
 pulldown-cmark = "0.10"
 tempfile = "3.8"
 
-# MCP
-rmcp = "0.14"
+# MCP (concise, lightweight browser API)
+rmcp = { version = "0.14", features = ["server", "transport-io", "schemars"] }
+schemars = "1.0"
 
 # CDP client (WebSocket for CDP communication)
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
@@ -88,4 +89,8 @@ path = "examples/comprehensive_showcase.rs"
 [[example]]
 name = "simple_navigation"
 path = "examples/simple_navigation.rs"
+
+[[example]]
+name = "browse_navigate_extract"
+path = "examples/browse_navigate_extract.rs"
 

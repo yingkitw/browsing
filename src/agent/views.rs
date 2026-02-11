@@ -217,6 +217,29 @@ impl Default for ActionResult {
     }
 }
 
+impl ActionResult {
+    /// Creates a success result with extracted content and long-term memory.
+    /// Reduces repetition across action handlers.
+    pub fn success_with_memory(memory: impl Into<String>) -> Self {
+        let memory = memory.into();
+        Self {
+            extracted_content: Some(memory.clone()),
+            long_term_memory: Some(memory),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a done result indicating task completion.
+    pub fn done(text: impl Into<String>) -> Self {
+        Self {
+            extracted_content: Some(text.into()),
+            is_done: Some(true),
+            success: Some(true),
+            ..Default::default()
+        }
+    }
+}
+
 /// Metadata for a single step including timing and token information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StepMetadata {

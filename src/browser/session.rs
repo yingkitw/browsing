@@ -130,18 +130,6 @@ impl Browser {
         self.navigation_manager.navigate(&page, url).await
     }
 
-    /// Go back in browser history
-    pub async fn go_back(&mut self) -> Result<()> {
-        let page = self.get_page()?;
-        self.navigation_manager.go_back(&page).await
-    }
-
-    /// Go forward in browser history
-    pub async fn go_forward(&mut self) -> Result<()> {
-        let page = self.get_page()?;
-        self.navigation_manager.go_forward(&page).await
-    }
-
     /// Get the current page URL
     pub async fn get_current_url(&self) -> Result<String> {
         let client = self.get_cdp_client()?;
@@ -166,13 +154,24 @@ impl Browser {
     }
 
     /// Stop the browser session and clean up resources
+    ///
+    /// # Safety Policy
+    ///
+    /// **IMPORTANT**: This method does NOT delete browser data directories.
+    ///
+    /// We never cleanup user data for safety reasons:
+    /// - Users may specify a custom `user_data_dir` pointing to their real browser profile
+    /// - Deleting user data (bookmarks, history, passwords, extensions) would be catastrophic
+    /// - Temporary profiles are preserved for debugging and inspection
+    ///
+    /// Users are responsible for managing their own browser data directories.
     pub async fn stop(&mut self) -> Result<()> {
-        // Stop launcher if present
+        // Stop launcher if present (kills browser process only)
         if let Some(ref mut launcher) = self.launcher {
             launcher.stop().await?;
         }
 
-        // Clear managers
+        // Clear internal managers (in-memory state only)
         self.tab_manager = TabManager::new();
         self.cdp_client = None;
         self.launcher = None;
@@ -369,16 +368,6 @@ impl BrowserClient for Browser {
     async fn navigate(&mut self, url: &str) -> Result<()> {
         let page = self.get_page()?;
         self.navigation_manager.navigate(&page, url).await
-    }
-
-    async fn go_back(&mut self) -> Result<()> {
-        let page = self.get_page()?;
-        self.navigation_manager.go_back(&page).await
-    }
-
-    async fn go_forward(&mut self) -> Result<()> {
-        let page = self.get_page()?;
-        self.navigation_manager.go_forward(&page).await
     }
 
     async fn get_current_url(&self) -> Result<String> {

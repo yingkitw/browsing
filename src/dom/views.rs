@@ -80,26 +80,7 @@ pub struct DOMInteractedElement {
 impl DOMInteractedElement {
     /// Converts the element to a dictionary
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
-        let mut data = HashMap::new();
-        data.insert(
-            "index".to_string(),
-            serde_json::to_value(self.index).unwrap(),
-        );
-        data.insert("tag".to_string(), serde_json::to_value(&self.tag).unwrap());
-        if let Some(ref text) = self.text {
-            data.insert("text".to_string(), serde_json::to_value(text).unwrap());
-        }
-        data.insert(
-            "attributes".to_string(),
-            serde_json::to_value(&self.attributes).unwrap(),
-        );
-        if let Some(ref selector) = self.selector {
-            data.insert(
-                "selector".to_string(),
-                serde_json::to_value(selector).unwrap(),
-            );
-        }
-        data
+        serde_json::from_value(serde_json::to_value(self).unwrap()).unwrap()
     }
 }
 

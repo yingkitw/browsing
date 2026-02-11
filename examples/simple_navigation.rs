@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
     println!("1. Creating browser...");
     let mut browser = Browser::new(BrowserProfile {
         headless: Some(false),
+        proxy: None,
         ..Default::default()
     });
 
@@ -82,11 +83,6 @@ async fn main() -> Result<()> {
         browser.switch_to_tab(&tabs[0].target_id).await?;
         println!("   ✓ Switched to first tab\n");
     }
-
-    // Go back in history
-    println!("10. Testing navigation history...");
-    browser.go_back().await?;
-    println!("    ✓ Went back in history\n");
 
     println!("✅ Example completed successfully!");
     println!("\n💡 The browser will remain open. Close it manually or press Ctrl+C");

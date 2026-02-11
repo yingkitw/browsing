@@ -15,6 +15,6 @@ pub use navigation::NavigationManager;
 pub use screenshot::ScreenshotManager;
 pub use tab_manager::TabManager;
 
-pub use profile::BrowserProfile;
+pub use profile::{BrowserProfile, ProxyConfig};
 pub use session::Browser;
 pub use views::*;

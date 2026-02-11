@@ -294,7 +294,6 @@ Abstracts browser operations for testing and alternative backends.
 pub trait BrowserClient: Send + Sync {
     async fn start(&mut self) -> Result<()>;
     async fn navigate(&mut self, url: &str) -> Result<()>;
-    async fn go_back(&mut self) -> Result<()>;
     async fn get_current_url(&self) -> Result<String>;
     async fn create_tab(&mut self, url: Option<&str>) -> Result<String>;
     async fn switch_to_tab(&mut self, target_id: &str) -> Result<()>;

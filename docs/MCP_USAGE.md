@@ -1,6 +1,6 @@
 # MCP Server Usage Guide
 
-The `browsing-mcp` server provides a Model Context Protocol interface for AI assistants to control web browsers.
+The `browsing-mcp` server is a **concise, lightweight** MCP interface: navigate, get links, follow links, list content (links + images), get/save content, screenshot (full or element). Lazy browser init. Parallel reads via RwLock.
 
 ## What is MCP?
 
@@ -38,119 +38,42 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 }
 ```
 
-## Available Tools
+## Available Tools (8)
 
 ### navigate
+Navigate to a URL. **Parameters:** `url` (string, required)
 
-Navigate to a URL.
+### get_links
+Get all links on the current page. **Parameters:** None  
+**Returns:** `{ url, links: [{ index, href, text }], count }`
 
-**Parameters:**
-- `url` (string, required): URL to navigate to
+### follow_link
+Follow a link by index (from get_links) or by URL. **Parameters:** `index` (number) or `url` (string)
 
-**Example:**
-```json
-{
-  "name": "navigate",
-  "arguments": {
-    "url": "https://example.com"
-  }
-}
-```
+### list_content
+List available links and images with indices. **Parameters:** None  
+**Returns:** `{ url, links: [...], images: [{ index, src, alt }] }`
 
 ### get_content
+Get page text content. **Parameters:** `max_chars` (number, optional, default 100000)  
+**Returns:** `{ url, text, length }`
 
-Get the current page content, including DOM structure and metadata.
+### get_image
+Capture image element by index (from list_content.images) as screenshot. **Parameters:** `index` (number, optional, default 0)  
+**Returns:** Image content (base64 PNG)
 
-**Parameters:** None
-
-**Returns:**
-```json
-{
-  "success": true,
-  "content": "...",
-  "url": "https://example.com",
-  "title": "Example Domain"
-}
-```
-
-### click
-
-Click an element by its index.
-
-**Parameters:**
-- `index` (number, required): Element index from the DOM
-
-**Example:**
-```json
-{
-  "name": "click",
-  "arguments": {
-    "index": 42
-  }
-}
-```
-
-### input
-
-Input text into an element.
-
-**Parameters:**
-- `index` (number, required): Element index
-- `text` (string, required): Text to input
-
-**Example:**
-```json
-{
-  "name": "input",
-  "arguments": {
-    "index": 15,
-    "text": "search query"
-  }
-}
-```
+### save_content
+Save text or image to file. **Parameters:** `path` (string), `content_type` ("text" or "image"), `image_index` (number, for images)  
+**Returns:** `{ success, path }`
 
 ### screenshot
+Take screenshot: full page, or element by CSS selector. **Parameters:** `full_page` (bool), `selector` (string, e.g. ".sidebar", "#content"), `element_index` (number, when selector matches multiple)  
+**Returns:** Image content (base64 PNG)
 
-Take a screenshot of the current page.
+## Architecture
 
-**Parameters:** None
-
-**Returns:**
-```json
-{
-  "success": true,
-  "screenshot": "base64_encoded_image",
-  "format": "base64"
-}
-```
-
-## Available Prompts
-
-### browse_task
-
-Template for autonomous browsing tasks.
-
-**Arguments:**
-- `task` (string, required): Task description
-
-**Example:**
-```json
-{
-  "name": "browse_task",
-  "arguments": {
-    "task": "Find the latest news about AI"
-  }
-}
-```
-
-## Available Resources
-
-### browser://current
-
-Access the current browser page content.
-
-**URI:** `browser://current`  
-**MIME Type:** `text/html`
+- **Lazy init**: Browser starts on first tool call
+- **Parallelism**: `get_content` and `screenshot` can run concurrently (RwLock read); `navigate` holds write lock
 
 ## Environment Variables
 
@@ -166,18 +89,15 @@ LLM_MODEL=ibm/granite-4-h-small
 
 ## Usage Examples
 
-### With Claude Desktop
+### Typical workflow: rust-lang.org
 
-Once configured, you can ask Claude:
-
-```
-"Navigate to example.com and click on the first link"
-```
-
-Claude will use the MCP tools to:
-1. Call `navigate` with the URL
-2. Call `get_content` to see the page
-3. Call `click` with the appropriate element index
+1. `navigate` to https://www.rust-lang.org
+2. `get_links` to list all links
+3. `follow_link` with `index` to go to a specific link, or `url` for direct navigation
+4. `list_content` to see links and images with indices
+5. `get_content` for page text
+6. `get_image` with `index` to capture an image, or `save_content` with `content_type: "image"` and `image_index` to save
+7. `screenshot` with `full_page: true` for full page, or `selector: ".hero"` for a specific component
 
 ### With Custom MCP Client
 
@@ -188,13 +108,22 @@ client = mcp.Client()
 client.connect("browsing-mcp")
 
 # Navigate
-result = client.call_tool("navigate", {"url": "https://example.com"})
+client.call_tool("navigate", {"url": "https://www.rust-lang.org"})
 
-# Get content
-content = client.call_tool("get_content", {})
+# Get links
+links = client.call_tool("get_links", {})
 
-# Click element
-client.call_tool("click", {"index": 5})
+# Follow second link
+client.call_tool("follow_link", {"index": 1})
+
+# List content (links + images)
+content = client.call_tool("list_content", {})
+
+# Save page text
+client.call_tool("save_content", {"path": "page.txt", "content_type": "text"})
+
+# Screenshot specific element
+client.call_tool("screenshot", {"selector": "main"})
 ```
 
 ## Architecture
@@ -209,9 +138,9 @@ The MCP server:
 
 1. **Lazy Loading**: Browser launches only when first tool is called
 2. **Session Persistence**: Browser stays open across multiple tool calls
-3. **Element Indices**: Use `get_content` to see element indices before clicking
-4. **Screenshots**: Use for visual verification of page state
-5. **Error Handling**: All tools return structured error information
+3. **Links & Content**: Use `get_links` and `list_content` to discover links/images; use `follow_link` to navigate by index or URL
+4. **Screenshots**: Full page or element by CSS selector (e.g. `selector: ".sidebar"`)
+5. **Save Content**: Use `save_content` to save text or images (by index) to files
 
 ## Troubleshooting
 

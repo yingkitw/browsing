@@ -31,11 +31,7 @@ impl TabsHandler {
         let current_url = context.browser.get_current_url().await.unwrap_or_default();
         let memory = format!("Switched to tab #{} (URL: {})", tab_id, current_url);
         info!("🔄 {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     async fn close_tab(&self, params: &ActionParams<'_>, context: &mut ActionContext<'_>) -> Result<ActionResult> {
@@ -46,11 +42,7 @@ impl TabsHandler {
         let current_url = context.browser.get_current_url().await.unwrap_or_default();
         let memory = format!("Closed tab #{}, now on {}", tab_id, current_url);
         info!("❌ {}", memory);
-        Ok(ActionResult {
-            extracted_content: Some(memory.clone()),
-            long_term_memory: Some(memory),
-            ..Default::default()
-        })
+        Ok(ActionResult::success_with_memory(memory))
     }
 
     async fn get_target_id_from_tab_id(&self, context: &mut ActionContext<'_>, tab_id: &str) -> Result<String> {

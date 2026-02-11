@@ -1,14 +1,14 @@
 # Browsing
 
-**Autonomous web browsing for AI agents - Rust implementation**
+**Lightweight MCP/API for browser automation**
 
-Browsing is a powerful Rust library that enables AI agents to autonomously interact with web pages. Available as a **CLI tool**, **MCP server**, and **Rust library**, it provides a clean, trait-based architecture for browser automation, DOM extraction, and LLM-driven web interactions.
+A concise MCP server and Rust library: **navigate**, **get_links**, **follow_link**, **list_content** (links+images), **get_content**, **get_image**, **save_content**, **screenshot** (full or element). Lazy browser init. Parallel reads via RwLock.
 
-## 🎯 Three Ways to Use Browsing
+## 🎯 Usage Modes
 
-1. **📦 Library** - Integrate into your Rust applications
-2. **⌨️ CLI** - Command-line tool for autonomous browsing tasks
-3. **🔌 MCP Server** - Model Context Protocol server for AI assistants (Claude, GPT-4, etc.)
+1. **🔌 MCP Server** (primary) - `navigate`, `get_links`, `follow_link`, `list_content`, `get_content`, `get_image`, `save_content`, `screenshot` tools for AI assistants
+2. **⌨️ CLI** - Autonomous browsing tasks
+3. **📦 Library** - Full agent system with LLM, custom actions
 
 ## ✨ Why Browsing?
 
@@ -112,7 +112,7 @@ Configure in Claude Desktop (`~/Library/Application Support/Claude/claude_deskto
 
 Then ask Claude:
 ```
-"Navigate to example.com and click on the first link"
+"Navigate to rust-lang.org, get the links, follow the second link, and screenshot the main content area"
 ```
 
 **📖 [Full MCP Documentation](docs/MCP_USAGE.md)**
@@ -288,9 +288,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Switch tabs
     browser.switch_to_tab(&tabs[0].target_id).await?;
 
-    // Go back
-    browser.go_back().await?;
-
     Ok(())
 }
 ```
@@ -462,6 +459,71 @@ cargo test --test integration
   - [utils_test.rs](tests/utils_test.rs) - URL extraction, signal handling (49 passed)
 - **Mock implementations** for deterministic testing
 - **Trait-based mocking** for browser/DOM components
+
+## ⚠️ Data Retention Policy
+
+### Browser Data is NEVER Deleted
+
+**IMPORTANT**: The `browsing` library **never deletes browser data** for safety reasons.
+
+#### What This Means:
+
+| Data Type | Behavior |
+|-----------|----------|
+| **Bookmarks** | Never deleted |
+| **History** | Never deleted |
+| **Cookies** | Never deleted |
+| **Passwords** | Never deleted |
+| **Extensions** | Never deleted |
+| **Cache** | Never deleted |
+| **Temp Directories** | Never deleted (left in `/tmp/`) |
+
+#### Why This Policy Exists:
+
+1. **User Safety**: Users may specify a custom `user_data_dir` pointing to their real browser profile
+2. **Catastrophe Prevention**: Accidentally deleting a user's real browser data (bookmarks, history, passwords) would be devastating
+3. **Debugging**: Leaving temp directories allows inspection after crashes or failures
+4. **User Control**: Users are responsible for managing their own browser data
+
+#### How It Works:
+
+When no `user_data_dir` is specified:
+```rust
+let profile = BrowserProfile {
+    user_data_dir: None,  // Uses temp directory: /tmp/browser-use-1738369200000/
+    ..Default::default()
+};
+```
+
+When `browser.stop()` is called:
+- ✅ Browser process is killed
+- ✅ In-memory state is cleared
+- ❌ User data directory is **NOT** deleted
+
+#### Managing Temporary Data:
+
+Users are responsible for cleanup:
+
+```bash
+# List browser temp directories
+ls -la /tmp/browser-use-*
+
+# Delete old temp directories (optional, manual cleanup)
+rm -rf /tmp/browser-use-1738369200000/
+```
+
+#### Using a Custom Data Directory:
+
+```rust
+let profile = BrowserProfile {
+    user_data_dir: Some("/path/to/custom/profile".into()),
+    ..Default::default()
+};
+```
+
+**Warning**: If you point to your real browser profile, the library will NOT protect it. You're responsible for that directory.
+
+
 
 ## 🔧 Configuration
 
